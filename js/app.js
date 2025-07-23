@@ -21,6 +21,9 @@ const API_BASE_URL = 'http://localhost:5000/api';
 function init() {
     analyzeBtn.addEventListener('click', handleAnalyzeClick);
     timeFilterElement.addEventListener('change', handleTimeFilterChange);
+    
+    // Set current year in the GitHub stats
+    document.getElementById('current-year').textContent = new Date().getFullYear();
 }
 
 // Handle analyze button click
@@ -85,9 +88,15 @@ async function fetchAndDisplayData(username) {
         // Fetch repositories data
         const repos = await fetchRepositories(username);
         
+        // Fetch aggregated language data
+        const languageData = await fetchUserLanguages(username);
+        
         // Process and display language distributions
-        const languageData = await processLanguageData(username, repos);
-        displayLanguageDistributions(languageData);
+        const processedLanguageData = await processLanguageData(username, repos);
+        displayLanguageDistributions(processedLanguageData);
+        
+        // Display language bar using aggregated data
+        displayLanguageBar(languageData);
         
         // Fetch and display commit timeline
         const timeRange = timeFilterElement.value;
@@ -105,12 +114,32 @@ async function fetchAndDisplayData(username) {
         // Display repository metrics
         displayRepositoryMetrics(repos, profileData);
         
+        // Display GitHub stats
+        displayGitHubStats(username, repos, profileData);
+        
         // Show results
         hideLoading();
         resultsElement.classList.remove('hidden');
     } catch (error) {
         hideLoading();
         throw error;
+    }
+}
+
+// Fetch user languages
+async function fetchUserLanguages(username) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/user-languages/${username}`);
+        
+        if (!response.ok) {
+            throw new Error('Failed to fetch user languages');
+        }
+        
+        return await response.json();
+    } catch (error) {
+        console.error('Error fetching user languages:', error);
+        // Return empty object if there's an error
+        return {};
     }
 }
 
@@ -745,6 +774,153 @@ function displayRepositoryMetrics(repos, profileData) {
         
         metricsContainer.appendChild(metricCard);
     });
+}
+
+// Display language bar
+function displayLanguageBar(languages) {
+    const languageBar = document.getElementById('language-bar');
+    const languageLegend = document.getElementById('language-legend');
+    
+    // Clear previous content
+    languageBar.innerHTML = '';
+    languageLegend.innerHTML = '';
+    
+    // Define colors for common languages
+    const languageColors = {
+        'JavaScript': '#f1e05a',
+        'Python': '#3572A5',
+        'HTML': '#e34c26',
+        'CSS': '#563d7c',
+        'TypeScript': '#2b7489',
+        'Java': '#b07219',
+        'C++': '#f34b7d',
+        'C#': '#178600',
+        'PHP': '#4F5D95',
+        'Ruby': '#701516',
+        'Go': '#00ADD8',
+        'Jupyter Notebook': '#DA5B0B',
+        'Shell': '#89e051',
+        'Swift': '#ffac45',
+        'Kotlin': '#A97BFF',
+        'Rust': '#dea584'
+    };
+    
+    // Calculate total count
+    const totalCount = Object.values(languages).reduce((sum, count) => sum + count, 0);
+    
+    // Sort languages by count (descending)
+    const sortedLanguages = Object.entries(languages)
+        .sort((a, b) => b[1] - a[1]);
+    
+    // Create language bar segments
+    sortedLanguages.forEach(([language, count]) => {
+        const percentage = (count / totalCount) * 100;
+        if (percentage < 0.5) return; // Skip very small percentages
+        
+        const color = languageColors[language] || getRandomColor();
+        
+        // Create bar segment
+        const segment = document.createElement('div');
+        segment.className = 'language-segment';
+        segment.style.width = `${percentage}%`;
+        segment.style.backgroundColor = color;
+        languageBar.appendChild(segment);
+        
+        // Create legend item
+        const legendItem = document.createElement('div');
+        legendItem.className = 'language-item';
+        
+        const colorBox = document.createElement('span');
+        colorBox.className = 'language-color';
+        colorBox.style.backgroundColor = color;
+        
+        const nameSpan = document.createElement('span');
+        nameSpan.textContent = `${language} ${percentage.toFixed(2)}%`;
+        
+        legendItem.appendChild(colorBox);
+        legendItem.appendChild(nameSpan);
+        languageLegend.appendChild(legendItem);
+    });
+}
+
+// Display GitHub stats
+function displayGitHubStats(username, repos, profileData) {
+    // Update title with username
+    const displayName = profileData.name || username;
+    document.getElementById('github-stats-title').textContent = `${displayName}'s GitHub Stats`;
+    
+    // Calculate total stars from repositories
+    const totalStars = repos.reduce((sum, repo) => sum + repo.stargazers_count, 0);
+    
+    // Get stats from profile data if available
+    const stats = profileData.stats || {};
+    const currentYear = new Date().getFullYear();
+    
+    // Use real data from API or fallback to defaults if not available
+    const totalCommits = stats.commits_current_year || 0;
+    const totalPRs = stats.total_prs || 0;
+    const totalIssues = stats.total_issues || 0;
+    const contributedTo = stats.contributed_to || 0;
+    
+    // Update stats in the UI
+    document.getElementById('total-stars').textContent = totalStars;
+    document.getElementById('total-commits').textContent = totalCommits;
+    document.getElementById('total-prs').textContent = totalPRs;
+    document.getElementById('total-issues').textContent = totalIssues;
+    document.getElementById('contributed-to').textContent = contributedTo;
+    
+    // Calculate grade based on actual stats
+    const grade = calculateGrade(totalStars, totalCommits, totalPRs, contributedTo);
+    document.getElementById('user-grade').textContent = grade;
+    
+    // Update grade circle background
+    updateGradeCircle(grade);
+}
+
+// Calculate GitHub grade based on activity
+function calculateGrade(stars, commits, prs, contributions) {
+    // Simple grading algorithm (can be adjusted)
+    const score = stars * 0.5 + commits * 0.3 + prs * 0.7 + contributions * 2;
+    
+    if (score >= 100) return 'A+';
+    if (score >= 80) return 'A';
+    if (score >= 70) return 'B+';
+    if (score >= 60) return 'B';
+    if (score >= 50) return 'C+';
+    if (score >= 40) return 'C';
+    if (score >= 30) return 'D+';
+    if (score >= 20) return 'D';
+    return 'F';
+}
+
+// Update grade circle background
+function updateGradeCircle(grade) {
+    const gradeCircle = document.querySelector('.grade-circle');
+    let percentage;
+    
+    switch(grade) {
+        case 'A+': percentage = 95; break;
+        case 'A': percentage = 85; break;
+        case 'B+': percentage = 75; break;
+        case 'B': percentage = 65; break;
+        case 'C+': percentage = 55; break;
+        case 'C': percentage = 45; break;
+        case 'D+': percentage = 35; break;
+        case 'D': percentage = 25; break;
+        default: percentage = 15;
+    }
+    
+    gradeCircle.style.background = `conic-gradient(#4285f4 0%, #4285f4 ${percentage}%, #e1e4e8 ${percentage}%, #e1e4e8 100%)`;
+}
+
+// Generate random color for languages without predefined colors
+function getRandomColor() {
+    const letters = '0123456789ABCDEF';
+    let color = '#';
+    for (let i = 0; i < 6; i++) {
+        color += letters[Math.floor(Math.random() * 16)];
+    }
+    return color;
 }
 
 // Initialize the application when the DOM is loaded

@@ -54,6 +54,52 @@
                 </div>
             </section>
 
+            <div class="chart-row">
+                <section class="card half-width">
+                    <h2>Most Used Languages</h2>
+                    <div class="language-bar-container">
+                        <div id="language-bar" class="language-bar"></div>
+                        <div id="language-legend" class="language-legend"></div>
+                    </div>
+                </section>
+
+                <section class="card half-width">
+                    <h2 id="github-stats-title">GitHub Stats</h2>
+                    <div class="github-stats">
+                        <div class="stats-grid">
+                            <div class="stats-item">
+                                <span class="stats-icon">⭐</span>
+                                <span class="stats-label">Total Stars Earned:</span>
+                                <span class="stats-value" id="total-stars">0</span>
+                            </div>
+                            <div class="stats-item">
+                                <span class="stats-icon">🕒</span>
+                                <span class="stats-label">Total Commits (<span id="current-year"></span>):</span>
+                                <span class="stats-value" id="total-commits">0</span>
+                            </div>
+                            <div class="stats-item">
+                                <span class="stats-icon">🔀</span>
+                                <span class="stats-label">Total PRs:</span>
+                                <span class="stats-value" id="total-prs">0</span>
+                            </div>
+                            <div class="stats-item">
+                                <span class="stats-icon">ℹ️</span>
+                                <span class="stats-label">Total Issues:</span>
+                                <span class="stats-value" id="total-issues">0</span>
+                            </div>
+                            <div class="stats-item">
+                                <span class="stats-icon">🔄</span>
+                                <span class="stats-label">Contributed to (last year):</span>
+                                <span class="stats-value" id="contributed-to">0</span>
+                            </div>
+                        </div>
+                        <div class="grade-circle">
+                            <div class="grade" id="user-grade">C+</div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
             <section class="card">
                 <h2>Commit Activity Timeline</h2>
                 <div class="filter-container">
