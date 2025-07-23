@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub Profile Analyzer</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>GitHub Profile Analyzer</h1>
+            <p>Get comprehensive insights into GitHub profiles</p>
+        </header>
+
+        <div class="search-container">
+            <input type="text" id="username" placeholder="Enter GitHub username or profile URL">
+            <button id="analyze-btn">Analyze</button>
+        </div>
+
+        <div id="loading" class="hidden">
+            <div class="spinner"></div>
+            <p>Fetching profile data...</p>
+        </div>
+
+        <div id="error-message" class="hidden"></div>
+
+        <div id="results" class="hidden">
+            <section id="profile-overview" class="card">
+                <h2>Profile Overview</h2>
+                <div class="profile-content">
+                    <div class="profile-image">
+                        <img id="avatar" src="" alt="Profile Image">
+                    </div>
+                    <div class="profile-details">
+                        <h3 id="name"></h3>
+                        <p id="bio"></p>
+                        <div class="stats">
+                            <div class="stat">
+                                <span class="stat-value" id="repos"></span>
+                                <span class="stat-label">Repositories</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-value" id="followers"></span>
+                                <span class="stat-label">Followers</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-value" id="following"></span>
+                                <span class="stat-label">Following</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="card">
+                <h2>Commit Activity Timeline</h2>
+                <div class="filter-container">
+                    <label for="time-filter">Time Range:</label>
+                    <select id="time-filter">
+                        <option value="1month">Last 1 Month</option>
+                        <option value="3months">Last 3 Months</option>
+                        <option value="6months">Last 6 Months</option>
+                        <option value="1year">Last 1 Year</option>
+                        <option value="all">All Time</option>
+                    </select>
+                </div>
+                <div class="chart-container">
+                    <canvas id="commit-timeline"></canvas>
+                </div>
+            </section>
+
+            <div class="chart-row">
+                <section class="card half-width">
+                    <h2>Language Distribution (Repositories)</h2>
+                    <div class="chart-container">
+                        <canvas id="repo-languages"></canvas>
+                    </div>
+                </section>
+
+                <section class="card half-width">
+                    <h2>Language Distribution (Commits)</h2>
+                    <div class="chart-container">
+                        <canvas id="commit-languages"></canvas>
+                    </div>
+                </section>
+            </div>
+
+            <section class="card">
+                <h2>Recent Activity Stream</h2>
+                <div class="chart-container">
+                    <canvas id="activity-stream"></canvas>
+                </div>
+            </section>
+
+            <div class="chart-row">
+                <section class="card half-width">
+                    <h2>Repository Size Distribution</h2>
+                    <div class="chart-container">
+                        <canvas id="repo-size-chart"></canvas>
+                    </div>
+                </section>
+
+                <section class="card half-width">
+                    <h2>Star & Fork Analysis</h2>
+                    <div class="chart-container">
+                        <canvas id="star-fork-chart"></canvas>
+                    </div>
+                </section>
+            </div>
+
+            <section class="card">
+                <h2>Repository Metrics</h2>
+                <div class="metrics-grid" id="repo-metrics">
+                    <!-- Metrics will be populated by JavaScript -->
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>
