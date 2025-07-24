@@ -19,9 +19,7 @@ A web-based tool designed to provide comprehensive and visually engaging insight
 
 - **Recent Activity Stream**: A line chart detailing recent interactions, such as new repositories, pull requests, or issues.
 
-- **Repository Size Distribution**: A bar chart showing the distribution of repositories by size categories (Tiny, Small, Medium, Large, Very Large).
 
-- **Star & Fork Analysis**: A comparative bar chart of the top 5 repositories by stars, showing both star and fork counts.
 
 - **Repository Metrics**: A comprehensive dashboard of repository statistics including:
   - Total repositories (original vs. forked)

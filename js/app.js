@@ -11,8 +11,7 @@ let commitTimelineChart = null;
 let repoLanguagesChart = null;
 let commitLanguagesChart = null;
 let activityStreamChart = null;
-let repoSizeChart = null;
-let starForkChart = null;
+
 
 // Backend API base URL
 const API_BASE_URL = 'http://localhost:5000/api';
@@ -105,11 +104,7 @@ async function fetchAndDisplayData(username) {
         // Fetch and display activity stream
         await updateActivityStream(username);
         
-        // Display repository size distribution
-        displayRepoSizeDistribution(repos);
-        
-        // Display star and fork analysis
-        displayStarForkAnalysis(repos);
+
         
         // Display repository metrics
         displayRepositoryMetrics(repos, profileData);
@@ -522,179 +517,7 @@ function showError(message) {
     resultsElement.classList.add('hidden');
 }
 
-// Display repository size distribution
-function displayRepoSizeDistribution(repos) {
-    // Group repositories by size ranges
-    const sizeRanges = {
-        'Tiny (<10KB)': 0,
-        'Small (10KB-100KB)': 0,
-        'Medium (100KB-1MB)': 0,
-        'Large (1MB-10MB)': 0,
-        'Very Large (>10MB)': 0
-    };
-    
-    repos.forEach(repo => {
-        const sizeKB = repo.size;
-        
-        if (sizeKB < 10) {
-            sizeRanges['Tiny (<10KB)']++;
-        } else if (sizeKB < 100) {
-            sizeRanges['Small (10KB-100KB)']++;
-        } else if (sizeKB < 1000) {
-            sizeRanges['Medium (100KB-1MB)']++;
-        } else if (sizeKB < 10000) {
-            sizeRanges['Large (1MB-10MB)']++;
-        } else {
-            sizeRanges['Very Large (>10MB)']++;
-        }
-    });
-    
-    const labels = Object.keys(sizeRanges);
-    const data = Object.values(sizeRanges);
-    
-    const ctx = document.getElementById('repo-size-chart').getContext('2d');
-    
-    // Destroy previous chart instance if it exists
-    if (repoSizeChart) {
-        repoSizeChart.destroy();
-    }
-    
-    // Create new chart
-    repoSizeChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: 'Number of Repositories',
-                data: data,
-                backgroundColor: [
-                    'rgba(46, 164, 79, 0.7)',   // Green
-                    'rgba(52, 152, 219, 0.7)',  // Blue
-                    'rgba(241, 196, 15, 0.7)',  // Yellow
-                    'rgba(230, 126, 34, 0.7)',  // Orange
-                    'rgba(231, 76, 60, 0.7)'    // Red
-                ],
-                borderColor: [
-                    'rgba(46, 164, 79, 1)',
-                    'rgba(52, 152, 219, 1)',
-                    'rgba(241, 196, 15, 1)',
-                    'rgba(230, 126, 34, 1)',
-                    'rgba(231, 76, 60, 1)'
-                ],
-                borderWidth: 1
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                title: {
-                    display: true,
-                    text: 'Repository Size Distribution'
-                },
-                legend: {
-                    display: false
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            const value = context.raw;
-                            const total = data.reduce((a, b) => a + b, 0);
-                            const percentage = Math.round((value / total) * 100);
-                            return `${value} repositories (${percentage}%)`;
-                        }
-                    }
-                }
-            },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    title: {
-                        display: true,
-                        text: 'Number of Repositories'
-                    }
-                }
-            }
-        }
-    });
-}
 
-// Display star and fork analysis
-function displayStarForkAnalysis(repos) {
-    // Sort repositories by stars
-    const topRepos = [...repos]
-        .sort((a, b) => b.stargazers_count - a.stargazers_count)
-        .slice(0, 5);
-    
-    const labels = topRepos.map(repo => repo.name);
-    const starData = topRepos.map(repo => repo.stargazers_count);
-    const forkData = topRepos.map(repo => repo.forks_count);
-    
-    const ctx = document.getElementById('star-fork-chart').getContext('2d');
-    
-    // Destroy previous chart instance if it exists
-    if (starForkChart) {
-        starForkChart.destroy();
-    }
-    
-    // Create new chart
-    starForkChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: labels,
-            datasets: [
-                {
-                    label: 'Stars',
-                    data: starData,
-                    backgroundColor: 'rgba(241, 196, 15, 0.7)',
-                    borderColor: 'rgba(241, 196, 15, 1)',
-                    borderWidth: 1
-                },
-                {
-                    label: 'Forks',
-                    data: forkData,
-                    backgroundColor: 'rgba(52, 152, 219, 0.7)',
-                    borderColor: 'rgba(52, 152, 219, 1)',
-                    borderWidth: 1
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                title: {
-                    display: true,
-                    text: 'Top 5 Repositories by Stars'
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            const label = context.dataset.label || '';
-                            const value = context.raw || 0;
-                            return `${label}: ${value}`;
-                        }
-                    }
-                }
-            },
-            scales: {
-                x: {
-                    ticks: {
-                        maxRotation: 45,
-                        minRotation: 45
-                    }
-                },
-                y: {
-                    beginAtZero: true,
-                    title: {
-                        display: true,
-                        text: 'Count'
-                    }
-                }
-            }
-        }
-    });
-}
 
 // Display repository metrics
 function displayRepositoryMetrics(repos, profileData) {
