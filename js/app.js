@@ -266,6 +266,10 @@ function displayProfileOverview(profileData) {
     document.getElementById('repos').textContent = profileData.public_repos;
     document.getElementById('followers').textContent = profileData.followers;
     document.getElementById('following').textContent = profileData.following;
+    
+    // Calculate and display rating (will be updated later with actual data)
+    const rating = calculateRating(0, 0, 0, 0); // Placeholder, will be updated in displayGitHubStats
+    updateProfileRating(rating);
 }
 
 // Display language distributions
@@ -692,48 +696,33 @@ function displayGitHubStats(username, repos, profileData) {
     document.getElementById('total-issues').textContent = totalIssues;
     document.getElementById('contributed-to').textContent = contributedTo;
     
-    // Calculate grade based on actual stats
-    const grade = calculateGrade(totalStars, totalCommits, totalPRs, contributedTo);
-    document.getElementById('user-grade').textContent = grade;
-    
-    // Update grade circle background
-    updateGradeCircle(grade);
+    // Calculate and update rating in profile overview
+    const rating = calculateRating(totalStars, totalCommits, totalPRs, contributedTo);
+    updateProfileRating(rating);
 }
 
-// Calculate GitHub grade based on activity
-function calculateGrade(stars, commits, prs, contributions) {
-    // Simple grading algorithm (can be adjusted)
-    const score = stars * 0.5 + commits * 0.3 + prs * 0.7 + contributions * 2;
-    
-    if (score >= 100) return 'A+';
-    if (score >= 80) return 'A';
-    if (score >= 70) return 'B+';
-    if (score >= 60) return 'B';
-    if (score >= 50) return 'C+';
-    if (score >= 40) return 'C';
-    if (score >= 30) return 'D+';
-    if (score >= 20) return 'D';
-    return 'F';
+// Calculate rating score out of 100
+function calculateRating(stars, commits, prs, contributions) {
+    const score = Math.min(100, Math.round(stars * 0.5 + commits * 0.3 + prs * 0.7 + contributions * 2));
+    return Math.max(0, score);
 }
 
-// Update grade circle background
-function updateGradeCircle(grade) {
-    const gradeCircle = document.querySelector('.grade-circle');
-    let percentage;
+// Update profile rating with color coding
+function updateProfileRating(rating) {
+    const ratingElement = document.getElementById('profile-rating');
+    ratingElement.textContent = `${rating}/100`;
     
-    switch(grade) {
-        case 'A+': percentage = 95; break;
-        case 'A': percentage = 85; break;
-        case 'B+': percentage = 75; break;
-        case 'B': percentage = 65; break;
-        case 'C+': percentage = 55; break;
-        case 'C': percentage = 45; break;
-        case 'D+': percentage = 35; break;
-        case 'D': percentage = 25; break;
-        default: percentage = 15;
+    // Color coding based on rating
+    if (rating >= 80) {
+        ratingElement.style.backgroundColor = '#28a745'; // Green
+    } else if (rating >= 60) {
+        ratingElement.style.backgroundColor = '#ffc107'; // Yellow
+        ratingElement.style.color = '#000 !important';
+    } else if (rating >= 40) {
+        ratingElement.style.backgroundColor = '#fd7e14'; // Orange
+    } else {
+        ratingElement.style.backgroundColor = '#dc3545'; // Red
     }
-    
-    gradeCircle.style.background = `conic-gradient(#4285f4 0%, #4285f4 ${percentage}%, #e1e4e8 ${percentage}%, #e1e4e8 100%)`;
 }
 
 // Generate random color for languages without predefined colors

@@ -49,6 +49,10 @@
                                 <span class="stat-value" id="following"></span>
                                 <span class="stat-label">Following</span>
                             </div>
+                            <div class="stat">
+                                <span class="stat-value rating-score" id="profile-rating">0</span>
+                                <span class="stat-label">Rating</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -99,9 +103,6 @@
                                 <span class="stats-value" id="contributed-to">0</span>
                             </div>
                         </div>
-                        <div class="grade-circle">
-                            <div class="grade" id="user-grade">C+</div>
-                        </div>
                     </div>
                 </section>
             </div>
@@ -111,9 +112,10 @@
                 <div class="filter-container">
                     <label for="time-filter">Time Range:</label>
                     <select id="time-filter">
-                        <option value="1month">Last 1 Month</option>
-                        <option value="3months">Last 3 Months</option>
-                        <option value="6months">Last 6 Months</option>
+                        <option value="15days">Last 15 Days</option>
+                        <option value="1month">Last 30 Days</option>
+                        <option value="3months">Last 90 Days</option>
+                        <option value="6months">Last 180 Days</option>
                         <option value="1year">Last 1 Year</option>
                         <option value="all">All Time</option>
                     </select>

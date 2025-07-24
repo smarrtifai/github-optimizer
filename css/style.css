@@ -124,6 +124,13 @@ header h1 {
     font-size: 0.9rem;
 }
 
+.rating-score {
+    border-radius: 4px;
+    padding: 2px 6px;
+    color: white !important;
+    font-weight: bold;
+}
+
 /* Chart Containers */
 .chart-container {
     position: relative;
