@@ -267,9 +267,8 @@ function displayProfileOverview(profileData) {
     document.getElementById('followers').textContent = profileData.followers;
     document.getElementById('following').textContent = profileData.following;
     
-    // Calculate and display rating (will be updated later with actual data)
-    const rating = calculateRating(0, 0, 0, 0); // Placeholder, will be updated in displayGitHubStats
-    updateProfileRating(rating);
+    // Initialize rating display
+    updateProfileRating(0);
 }
 
 // Display language distributions
@@ -701,28 +700,52 @@ function displayGitHubStats(username, repos, profileData) {
     updateProfileRating(rating);
 }
 
-// Calculate rating score out of 100
+// Calculate rating score out of 100 with improved algorithm
 function calculateRating(stars, commits, prs, contributions) {
-    const score = Math.min(100, Math.round(stars * 0.5 + commits * 0.3 + prs * 0.7 + contributions * 2));
-    return Math.max(0, score);
+    // Enhanced scoring algorithm
+    const starScore = Math.min(30, stars * 0.8);
+    const commitScore = Math.min(25, commits * 0.15);
+    const prScore = Math.min(25, prs * 1.2);
+    const contributionScore = Math.min(20, contributions * 3);
+    
+    const totalScore = Math.round(starScore + commitScore + prScore + contributionScore);
+    return Math.max(0, Math.min(100, totalScore));
 }
 
-// Update profile rating with color coding
+// Update profile rating with enhanced UX
 function updateProfileRating(rating) {
     const ratingElement = document.getElementById('profile-rating');
-    ratingElement.textContent = `${rating}/100`;
+    const progressElement = document.getElementById('rating-progress');
+    const descriptionElement = document.getElementById('rating-description');
     
-    // Color coding based on rating
-    if (rating >= 80) {
-        ratingElement.style.backgroundColor = '#28a745'; // Green
-    } else if (rating >= 60) {
-        ratingElement.style.backgroundColor = '#ffc107'; // Yellow
-        ratingElement.style.color = '#000 !important';
-    } else if (rating >= 40) {
-        ratingElement.style.backgroundColor = '#fd7e14'; // Orange
-    } else {
-        ratingElement.style.backgroundColor = '#dc3545'; // Red
-    }
+    // Animate rating display
+    setTimeout(() => {
+        ratingElement.textContent = rating;
+        
+        // Set color and description based on rating
+        let color, description;
+        if (rating >= 80) {
+            color = '#28a745';
+            description = 'Excellent Developer';
+        } else if (rating >= 60) {
+            color = '#ffc107';
+            description = 'Good Developer';
+        } else if (rating >= 40) {
+            color = '#fd7e14';
+            description = 'Average Developer';
+        } else if (rating >= 20) {
+            color = '#dc3545';
+            description = 'Beginner Developer';
+        } else {
+            color = '#6c757d';
+            description = 'New to GitHub';
+        }
+        
+        // Update CSS variables for progress circle
+        progressElement.style.setProperty('--rating-color', color);
+        progressElement.style.setProperty('--rating-percentage', `${rating}%`);
+        descriptionElement.textContent = description;
+    }, 300);
 }
 
 // Generate random color for languages without predefined colors
