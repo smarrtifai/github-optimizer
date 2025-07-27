@@ -112,6 +112,9 @@ async function fetchAndDisplayData(username) {
         // Display GitHub stats
         displayGitHubStats(username, repos, profileData);
         
+        // Generate AI insights
+        await generateAIInsights(username, repos, profileData, languageData);
+        
         // Show results
         hideLoading();
         resultsElement.classList.remove('hidden');
@@ -757,6 +760,218 @@ function getRandomColor() {
     }
     return color;
 }
+
+async function generateAIInsights(username, repos, profileData, languageData) {
+    const insightContainer = document.getElementById("insightContainer");
+    
+    // Show loading state for insights
+    if (insightContainer) {
+        insightContainer.innerHTML = '<div class="loading-insight">🤖 Generating AI insights...</div>';
+    }
+    
+    try {
+        // Use the correct API base URL
+        const response = await fetch(`${API_BASE_URL}/insights/${username}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+
+        if (data.error) {
+            console.error("Insight Error:", data.error);
+            if (insightContainer) {
+                insightContainer.innerHTML = `
+                    <div class="insight-error">
+                        <h3>⚠️ Insight Generation Failed</h3>
+                        <p>${data.error}</p>
+                        <button onclick="generateAIInsights('${username}', [], {}, {})" class="retry-btn">
+                            Try Again
+                        </button>
+                    </div>
+                `;
+            }
+            return;
+        }
+
+        // Display the insight in the UI with better formatting
+        if (insightContainer) {
+            // Convert markdown-style formatting to HTML
+            let formattedInsight = data.insight
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') // Bold
+                .replace(/^\* (.*$)/gim, '<li>$1</li>') // List items
+                .replace(/^- (.*$)/gim, '<li>$1</li>') // List items
+                .replace(/\n\n/g, '</p><p>') // Paragraphs
+                .replace(/^(.*:)$/gim, '<h4>$1</h4>'); // Headers
+            
+            // Wrap in paragraphs if not already wrapped
+            if (!formattedInsight.includes('<p>')) {
+                formattedInsight = '<p>' + formattedInsight + '</p>';
+            }
+            
+            // Wrap lists in ul tags
+            formattedInsight = formattedInsight.replace(/(<li>.*<\/li>)/gs, '<ul>$1</ul>');
+            
+            insightContainer.innerHTML = `
+                <div class="ai-insight">
+                    <div class="insight-header">
+                        <h3>🤖 AI Career Insights</h3>
+                        <span class="insight-badge">Powered by Gemini AI</span>
+                    </div>
+                    <div class="insight-content">
+                        ${formattedInsight}
+                    </div>
+                    <div class="insight-footer">
+                        <small>Generated based on GitHub profile analysis</small>
+                        <button onclick="generateAIInsights('${username}', [], {}, {})" class="refresh-btn">
+                            🔄 Refresh Insights
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            // Add some CSS classes for styling
+            addInsightStyles();
+        } else {
+            console.warn("Insight container element 'insightContainer' not found in DOM");
+        }
+        
+        // Optional: Log profile summary if available
+        if (data.profile_summary) {
+            console.log('Profile Summary:', data.profile_summary);
+        }
+        
+    } catch (error) {
+        console.error("Fetch error:", error);
+        
+        // Better error handling - show in UI instead of alert
+        if (insightContainer) {
+            const errorMessage = error.message.includes('Failed to fetch') 
+                ? 'Failed to connect to the server. Please check if the backend is running on http://localhost:5000'
+                : error.message;
+                
+            insightContainer.innerHTML = `
+                <div class="insight-error">
+                    <h3>❌ Connection Error</h3>
+                    <p>${errorMessage}</p>
+                    <button onclick="generateAIInsights('${username}', [], {}, {})" class="retry-btn">
+                        Try Again
+                    </button>
+                </div>
+            `;
+        }
+    }
+}
+
+// Add CSS styles for insights (call this once)
+function addInsightStyles() {
+    if (document.getElementById('insight-styles')) return; // Already added
+    
+    const style = document.createElement('style');
+    style.id = 'insight-styles';
+    style.textContent = `
+        .ai-insight {
+            background: linear-gradient(135deg, #be4e52ff 0%, #da4f54ff 100%);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            color: white;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+        
+        .insight-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            border-bottom: 1px solid rgba(255,255,255,0.2);
+            padding-bottom: 10px;
+        }
+        
+        .insight-badge {
+            background: rgba(255,255,255,0.2);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .insight-content {
+            line-height: 1.6;
+            margin: 15px 0;
+        }
+        
+        .insight-content h4 {
+            color: #ffffff;
+            margin: 15px 0 8px 0;
+            font-size: 16px;
+        }
+        
+        .insight-content ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        
+        .insight-content li {
+            margin: 5px 0;
+        }
+        
+        .insight-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 15px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(255,255,255,0.2);
+        }
+        
+        .refresh-btn, .retry-btn {
+            background: rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.3s ease;
+        }
+        
+        .refresh-btn:hover, .retry-btn:hover {
+            background: rgba(255,255,255,0.3);
+            transform: translateY(-1px);
+        }
+        
+        .loading-insight {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+            font-style: italic;
+        }
+        
+        .insight-error {
+            background: #fee;
+            border: 1px solid #fcc;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            color: #c33;
+        }
+        
+        .insight-error h3 {
+            margin: 0 0 10px 0;
+            color: #a00;
+        }
+    `;
+    document.head.appendChild(style);
+}
+
 
 // Initialize the application when the DOM is loaded
 document.addEventListener('DOMContentLoaded', init);

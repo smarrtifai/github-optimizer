@@ -6,12 +6,196 @@
     <title>GitHub Profile Analyzer</title>
     <link rel="stylesheet" href="css/style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* AI Insights Styles */
+        /* .ai-insights-container {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            color: white;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+        
+        .insight-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            border-bottom: 1px solid rgba(255,255,255,0.2);
+            padding-bottom: 10px;
+        }
+        
+        .insight-badge {
+            background: rgba(255,255,255,0.2);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .insight-content {
+            line-height: 1.6;
+            margin: 15px 0;
+        }
+        
+        .insight-content h4 {
+            color: #ffd700;
+            margin: 15px 0 8px 0;
+            font-size: 16px;
+        }
+        
+        .insight-content ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        
+        .insight-content li {
+            margin: 5px 0;
+        }
+        
+        .insight-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 15px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(255,255,255,0.2);
+        }
+        
+        .refresh-btn, .retry-btn {
+            background: rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.3s ease;
+        }
+        
+        .refresh-btn:hover, .retry-btn:hover {
+            background: rgba(255,255,255,0.3);
+            transform: translateY(-1px);
+        }
+        
+        .loading-insight {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+            font-style: italic;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 2px dashed #dee2e6;
+        }
+        
+        .insight-error {
+            background: #fee;
+            border: 1px solid #fcc;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            color: #c33;
+        }
+        
+        .insight-error h3 {
+            margin: 0 0 10px 0;
+            color: #a00;
+        }
+
+        .insights-container {
+            min-height: 100px;
+        }
+
+        /* Loading spinner for insights */
+        .ai-insights-loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .ai-insights-loading .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Enhanced rating styles */
+        .rating-circle {
+            position: relative;
+            width: 120px;
+            height: 120px;
+            margin: 0 auto;
+        }
+
+        .rating-progress {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: conic-gradient(
+                var(--rating-color, #28a745) 0deg,
+                var(--rating-color, #28a745) calc(var(--rating-percentage, 0%) * 3.6deg),
+                #e9ecef calc(var(--rating-percentage, 0%) * 3.6deg),
+                #e9ecef 360deg
+            );
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.5s ease;
+        }
+
+        .rating-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            background: white;
+            border-radius: 50%;
+            width: 80px;
+            height: 80px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .rating-score {
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--rating-color, #28a745);
+        }
+
+        .rating-label {
+            font-size: 12px;
+            color: #666;
+            margin-top: 2px;
+        }
+
+        .rating-description {
+            text-align: center;
+            margin-top: 10px;
+            font-weight: 500;
+            color: var(--rating-color, #28a745);
+        } */
+    </style>
 </head>
 <body>
     <div class="container">
         <header>
             <h1>GitHub Profile Analyzer</h1>
-            <p>Get comprehensive insights into GitHub profiles</p>
+            <p>Get comprehensive insights into GitHub profiles with AI-powered analysis</p>
         </header>
 
         <div class="search-container">
@@ -63,6 +247,7 @@
                     </div>
                 </div>
             </section>
+
             <section class="card">
                 <h2>Repository Metrics</h2>
                 <div class="metrics-grid" id="repo-metrics">
@@ -154,9 +339,15 @@
                 </div>
             </section>
 
-
-
-            
+            <section class="card">
+                
+                
+                <div id="insightContainer" class="insights-container">
+                    <div class="loading-insight">
+                        <p>🚀 AI insights will appear here after analysis...</p>
+                    </div>
+                </div>
+            </section>
         </div>
     </div>
 
