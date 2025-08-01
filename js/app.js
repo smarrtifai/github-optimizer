@@ -4,12 +4,9 @@ const analyzeBtn = document.getElementById('analyze-btn');
 const loadingElement = document.getElementById('loading');
 const errorElement = document.getElementById('error-message');
 const resultsElement = document.getElementById('results');
-const timeFilterElement = document.getElementById('time-filter');
+const activityTimeFilterElement = document.getElementById('activity-time-filter');
 
 // Chart instances
-let commitTimelineChart = null;
-let repoLanguagesChart = null;
-let commitLanguagesChart = null;
 let activityStreamChart = null;
 
 
@@ -19,7 +16,8 @@ const API_BASE_URL = 'http://localhost:5000/api';
 // Initialize the application
 function init() {
     analyzeBtn.addEventListener('click', handleAnalyzeClick);
-    timeFilterElement.addEventListener('change', handleTimeFilterChange);
+    activityTimeFilterElement.addEventListener('change', handleActivityTimeFilterChange);
+    document.getElementById('download-pdf-btn').addEventListener('click', downloadPDF);
     
     // Set current year in the GitHub stats
     document.getElementById('current-year').textContent = new Date().getFullYear();
@@ -63,16 +61,16 @@ function extractUsername(input) {
     return input;
 }
 
-// Handle time filter change
-async function handleTimeFilterChange() {
+// Handle activity time filter change
+async function handleActivityTimeFilterChange() {
     const username = extractUsername(usernameInput.value.trim());
-    const timeRange = timeFilterElement.value;
+    const timeRange = activityTimeFilterElement.value;
     
     if (username) {
         try {
-            await updateCommitTimeline(username, timeRange);
+            await updateActivityStream(username, timeRange);
         } catch (error) {
-            console.error('Error updating commit timeline:', error);
+            console.error('Error updating activity stream:', error);
         }
     }
 }
@@ -90,19 +88,12 @@ async function fetchAndDisplayData(username) {
         // Fetch aggregated language data
         const languageData = await fetchUserLanguages(username);
         
-        // Process and display language distributions
-        const processedLanguageData = await processLanguageData(username, repos);
-        displayLanguageDistributions(processedLanguageData);
-        
         // Display language bar using aggregated data
         displayLanguageBar(languageData);
         
-        // Fetch and display commit timeline
-        const timeRange = timeFilterElement.value;
-        await updateCommitTimeline(username, timeRange);
-        
-        // Fetch and display activity stream
-        await updateActivityStream(username);
+        // Fetch and display activity stream with default time range
+        const timeRange = activityTimeFilterElement.value;
+        await updateActivityStream(username, timeRange);
         
 
         
@@ -118,6 +109,7 @@ async function fetchAndDisplayData(username) {
         // Show results
         hideLoading();
         resultsElement.classList.remove('hidden');
+        document.getElementById('download-container').classList.remove('hidden');
     } catch (error) {
         hideLoading();
         throw error;
@@ -176,79 +168,10 @@ async function fetchRepositories(username) {
     }
 }
 
-// Process language data from repositories
-async function processLanguageData(username, repos) {
+// Update activity stream with time filter
+async function updateActivityStream(username, timeRange = '1month') {
     try {
-        const repoLanguages = {};
-        const commitLanguages = {};
-        
-        // Process repository languages
-        for (const repo of repos) {
-            if (repo.language) {
-                repoLanguages[repo.language] = (repoLanguages[repo.language] || 0) + 1;
-            }
-            
-            // For more detailed language breakdown, we would need to fetch languages for each repo
-            if (!repo.fork && repo.name) {  // Only count languages in non-forked repos for commit distribution
-                try {
-                    const response = await fetch(`${API_BASE_URL}/languages/${username}/${repo.name}`);
-                    
-                    if (response.ok) {
-                        const languages = await response.json();
-                        
-                        for (const [lang, bytes] of Object.entries(languages)) {
-                            commitLanguages[lang] = (commitLanguages[lang] || 0) + bytes;
-                        }
-                    }
-                } catch (error) {
-                    console.error(`Error fetching languages for ${repo.name}:`, error);
-                    // Still add the main language if available
-                    if (repo.language) {
-                        commitLanguages[repo.language] = (commitLanguages[repo.language] || 0) + 1000; // Arbitrary byte count
-                    }
-                }
-            }
-        }
-        
-        // If no languages were found, provide some default data
-        if (Object.keys(repoLanguages).length === 0) {
-            repoLanguages['JavaScript'] = 1;
-        }
-        
-        if (Object.keys(commitLanguages).length === 0) {
-            commitLanguages['JavaScript'] = 1000;
-        }
-        
-        return {
-            repoLanguages,
-            commitLanguages
-        };
-    } catch (error) {
-        console.error('Error processing language data:', error);
-        throw error;
-    }
-}
-
-// Update commit timeline based on selected time range
-async function updateCommitTimeline(username, timeRange) {
-    try {
-        const response = await fetch(`${API_BASE_URL}/commits/${username}?timeRange=${timeRange}`);
-        
-        if (!response.ok) {
-            throw new Error('Failed to fetch commit data');
-        }
-        
-        const commitData = await response.json();
-        displayCommitTimeline(commitData);
-    } catch (error) {
-        console.error('Error fetching commit data:', error);
-    }
-}
-
-// Update activity stream
-async function updateActivityStream(username) {
-    try {
-        const response = await fetch(`${API_BASE_URL}/activity/${username}`);
+        const response = await fetch(`${API_BASE_URL}/activity/${username}?timeRange=${timeRange}`);
         
         if (!response.ok) {
             throw new Error('Failed to fetch activity data');
@@ -274,78 +197,7 @@ function displayProfileOverview(profileData) {
     updateProfileRating(0);
 }
 
-// Display language distributions
-function displayLanguageDistributions(languageData) {
-    // Prepare data for repository languages chart
-    const repoLabels = Object.keys(languageData.repoLanguages);
-    const repoData = Object.values(languageData.repoLanguages);
-    
-    // Prepare data for commit languages chart
-    const commitLabels = Object.keys(languageData.commitLanguages);
-    const commitData = Object.values(languageData.commitLanguages);
-    
-    // Display repository languages chart
-    displayPieChart('repo-languages', repoLabels, repoData, 'Repository Languages');
-    
-    // Display commit languages chart
-    displayPieChart('commit-languages', commitLabels, commitData, 'Commit Languages (by bytes)');
-}
 
-// Display commit timeline
-function displayCommitTimeline(commitData) {
-    const ctx = document.getElementById('commit-timeline').getContext('2d');
-    
-    // Destroy previous chart instance if it exists
-    if (commitTimelineChart) {
-        commitTimelineChart.destroy();
-    }
-    
-    // Create new chart
-    commitTimelineChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: commitData.dates,
-            datasets: [{
-                label: 'Commits',
-                data: commitData.counts,
-                borderColor: '#2ea44f',
-                backgroundColor: 'rgba(46, 164, 79, 0.1)',
-                borderWidth: 2,
-                fill: true,
-                tension: 0.4
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                title: {
-                    display: true,
-                    text: 'Commit Activity'
-                },
-                tooltip: {
-                    mode: 'index',
-                    intersect: false
-                }
-            },
-            scales: {
-                x: {
-                    title: {
-                        display: true,
-                        text: 'Date'
-                    }
-                },
-                y: {
-                    beginAtZero: true,
-                    title: {
-                        display: true,
-                        text: 'Commit Count'
-                    }
-                }
-            }
-        }
-    });
-}
 
 // Display activity stream
 function displayActivityStream(activityData) {
@@ -416,57 +268,6 @@ function displayActivityStream(activityData) {
                     title: {
                         display: true,
                         text: 'Activity Count'
-                    }
-                }
-            }
-        }
-    });
-}
-
-// Display pie chart
-function displayPieChart(elementId, labels, data, title) {
-    const ctx = document.getElementById(elementId).getContext('2d');
-    
-    // Generate colors for each segment
-    const colors = generateColors(labels.length);
-    
-    // Destroy previous chart instance if it exists
-    if (window[elementId + 'Chart']) {
-        window[elementId + 'Chart'].destroy();
-    }
-    
-    // Create new chart
-    window[elementId + 'Chart'] = new Chart(ctx, {
-        type: 'pie',
-        data: {
-            labels: labels,
-            datasets: [{
-                data: data,
-                backgroundColor: colors,
-                borderColor: '#ffffff',
-                borderWidth: 1
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                title: {
-                    display: true,
-                    text: title
-                },
-                legend: {
-                    position: 'right'
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            const label = context.label || '';
-                            const value = context.raw || 0;
-                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                            const percentage = Math.round((value / total) * 100);
-                            return `${label}: ${value} (${percentage}%)`;
-                        }
                     }
                 }
             }
@@ -610,9 +411,20 @@ function displayLanguageBar(languages) {
     const languageBar = document.getElementById('language-bar');
     const languageLegend = document.getElementById('language-legend');
     
+    if (!languageBar || !languageLegend) {
+        console.error('Language bar elements not found');
+        return;
+    }
+    
     // Clear previous content
     languageBar.innerHTML = '';
     languageLegend.innerHTML = '';
+    
+    // Check if languages data exists
+    if (!languages || Object.keys(languages).length === 0) {
+        languageBar.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">No language data available</div>';
+        return;
+    }
     
     // Define colors for common languages
     const languageColors = {
@@ -637,6 +449,11 @@ function displayLanguageBar(languages) {
     // Calculate total count
     const totalCount = Object.values(languages).reduce((sum, count) => sum + count, 0);
     
+    if (totalCount === 0) {
+        languageBar.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">No language data available</div>';
+        return;
+    }
+    
     // Sort languages by count (descending)
     const sortedLanguages = Object.entries(languages)
         .sort((a, b) => b[1] - a[1]);
@@ -653,6 +470,8 @@ function displayLanguageBar(languages) {
         segment.className = 'language-segment';
         segment.style.width = `${percentage}%`;
         segment.style.backgroundColor = color;
+        segment.style.height = '100%';
+        segment.style.display = 'inline-block';
         languageBar.appendChild(segment);
         
         // Create legend item
@@ -662,9 +481,14 @@ function displayLanguageBar(languages) {
         const colorBox = document.createElement('span');
         colorBox.className = 'language-color';
         colorBox.style.backgroundColor = color;
+        colorBox.style.width = '12px';
+        colorBox.style.height = '12px';
+        colorBox.style.display = 'inline-block';
+        colorBox.style.borderRadius = '2px';
         
         const nameSpan = document.createElement('span');
-        nameSpan.textContent = `${language} ${percentage.toFixed(2)}%`;
+        nameSpan.textContent = `${language} ${count.toLocaleString()} lines (${percentage.toFixed(1)}%)`;
+        nameSpan.style.marginLeft = '8px';
         
         legendItem.appendChild(colorBox);
         legendItem.appendChild(nameSpan);
@@ -672,24 +496,23 @@ function displayLanguageBar(languages) {
     });
 }
 
+
 // Display GitHub stats
-function displayGitHubStats(username, repos, profileData) {
+function displayGitHubStats(username, _repos, profileData) {
     // Update title with username
     const displayName = profileData.name || username;
     document.getElementById('github-stats-title').textContent = `${displayName}'s GitHub Stats`;
     
-    // Calculate total stars from repositories
-    const totalStars = repos.reduce((sum, repo) => sum + repo.stargazers_count, 0);
-    
-    // Get stats from profile data if available
+    // Get stats from profile data. The backend now provides these.
     const stats = profileData.stats || {};
-    const currentYear = new Date().getFullYear();
     
     // Use real data from API or fallback to defaults if not available
+    const totalStars = stats.total_stars || 0; // Use backend value
     const totalCommits = stats.commits_current_year || 0;
     const totalPRs = stats.total_prs || 0;
     const totalIssues = stats.total_issues || 0;
     const contributedTo = stats.contributed_to || 0;
+    const rating = stats.rating || 0; // Use backend value
     
     // Update stats in the UI
     document.getElementById('total-stars').textContent = totalStars;
@@ -698,23 +521,9 @@ function displayGitHubStats(username, repos, profileData) {
     document.getElementById('total-issues').textContent = totalIssues;
     document.getElementById('contributed-to').textContent = contributedTo;
     
-    // Calculate and update rating in profile overview
-    const rating = calculateRating(totalStars, totalCommits, totalPRs, contributedTo);
+    // Update rating in profile overview using the score from the backend
     updateProfileRating(rating);
 }
-
-// Calculate rating score out of 100 with improved algorithm
-function calculateRating(stars, commits, prs, contributions) {
-    // Enhanced scoring algorithm
-    const starScore = Math.min(30, stars * 0.8);
-    const commitScore = Math.min(25, commits * 0.15);
-    const prScore = Math.min(25, prs * 1.2);
-    const contributionScore = Math.min(20, contributions * 3);
-    
-    const totalScore = Math.round(starScore + commitScore + prScore + contributionScore);
-    return Math.max(0, Math.min(100, totalScore));
-}
-
 // Update profile rating with enhanced UX
 function updateProfileRating(rating) {
     const ratingElement = document.getElementById('profile-rating');
@@ -764,9 +573,9 @@ function getRandomColor() {
 async function generateAIInsights(username, repos, profileData, languageData) {
     const insightContainer = document.getElementById("insightContainer");
     
-    // Show loading state for insights
+    // Show loading state with progress
     if (insightContainer) {
-        insightContainer.innerHTML = '<div class="loading-insight">🤖 Generating AI insights...</div>';
+        showInsightProgress(insightContainer);
     }
     
     try {
@@ -797,48 +606,35 @@ async function generateAIInsights(username, repos, profileData, languageData) {
                         </button>
                     </div>
                 `;
+                addThemedInsightStyles();
             }
             return;
         }
 
-        // Display the insight in the UI with better formatting
+        // Display the insight in the UI with theme-matching design
         if (insightContainer) {
-            // Convert markdown-style formatting to HTML
-            let formattedInsight = data.insight
-                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') // Bold
-                .replace(/^\* (.*$)/gim, '<li>$1</li>') // List items
-                .replace(/^- (.*$)/gim, '<li>$1</li>') // List items
-                .replace(/\n\n/g, '</p><p>') // Paragraphs
-                .replace(/^(.*:)$/gim, '<h4>$1</h4>'); // Headers
-            
-            // Wrap in paragraphs if not already wrapped
-            if (!formattedInsight.includes('<p>')) {
-                formattedInsight = '<p>' + formattedInsight + '</p>';
-            }
-            
-            // Wrap lists in ul tags
-            formattedInsight = formattedInsight.replace(/(<li>.*<\/li>)/gs, '<ul>$1</ul>');
+            const formattedInsight = formatProfessionalInsight(data.insight);
             
             insightContainer.innerHTML = `
-                <div class="ai-insight">
-                    <div class="insight-header">
-                        <h3>🤖 AI Career Insights</h3>
-                        <span class="insight-badge">Powered by Gemini AI</span>
+                <div class="themed-insight-card">
+                    <div class="insight-header-themed">
+                        <h2>🤖 AI Career Insights</h2>
+                        <p>Personalized analysis for <strong>${username}</strong></p>
+                        <span class="gemini-badge">Powered by Gemini AI</span>
                     </div>
-                    <div class="insight-content">
+                    <div class="insight-content-themed">
                         ${formattedInsight}
                     </div>
-                    <div class="insight-footer">
+                    <div class="insight-footer-themed">
                         <small>Generated based on GitHub profile analysis</small>
-                        <button onclick="generateAIInsights('${username}', [], {}, {})" class="refresh-btn">
+                        <button onclick="generateAIInsights('${username}', [], {}, {})" class="refresh-btn-themed">
                             🔄 Refresh Insights
                         </button>
                     </div>
                 </div>
             `;
             
-            // Add some CSS classes for styling
-            addInsightStyles();
+            addThemedInsightStyles();
         } else {
             console.warn("Insight container element 'insightContainer' not found in DOM");
         }
@@ -866,107 +662,268 @@ async function generateAIInsights(username, repos, profileData, languageData) {
                     </button>
                 </div>
             `;
+            addThemedInsightStyles();
         }
     }
 }
 
-// Add CSS styles for insights (call this once)
-function addInsightStyles() {
-    if (document.getElementById('insight-styles')) return; // Already added
+// Format Gemini response with professional structure
+function formatProfessionalInsight(insight) {
+    const sections = insight.split(/\n\n+/);
+    let formattedContent = '';
+    let sectionCount = 0;
+    
+    const sectionIcons = ['📊', '💼', '⭐', '🎯', '📈'];
+    
+    sections.forEach(section => {
+        if (!section.trim()) return;
+        
+        // Check for section headers
+        if (section.match(/^\*\*\d+\./)) {
+            const headerMatch = section.match(/^\*\*(\d+\. [^*]+)\*\*(.*)$/s);
+            if (headerMatch) {
+                const [, header, content] = headerMatch;
+                const icon = sectionIcons[sectionCount] || '📋';
+                sectionCount++;
+                
+                formattedContent += `
+                    <div class="professional-section">
+                        <div class="section-header-pro">
+                            <div class="section-icon">${icon}</div>
+                            <h3>${header.substring(header.indexOf('.') + 1).trim()}</h3>
+                        </div>
+                        <div class="section-body">${formatProfessionalContent(content)}</div>
+                    </div>
+                `;
+            }
+        } else if (section.startsWith('**') && section.endsWith('**')) {
+            // Standalone headers
+            const header = section.replace(/\*\*/g, '');
+            const icon = sectionIcons[sectionCount] || '📋';
+            sectionCount++;
+            formattedContent += `
+                <div class="professional-section">
+                    <div class="section-header-pro">
+                        <div class="section-icon">${icon}</div>
+                        <h3>${header}</h3>
+                    </div>
+                    <div class="section-body"></div>
+                </div>
+            `;
+        } else {
+            // Regular content without header
+            formattedContent += `<div class="content-paragraph">${formatProfessionalContent(section)}</div>`;
+        }
+    });
+    
+    return formattedContent;
+}
+
+// Format professional content with enhanced styling
+function formatProfessionalContent(content) {
+    return content
+        .replace(/\*\*(.*?)\*\*/g, '<span class="highlight">$1</span>')
+        .replace(/^- (.+)$/gm, '<li class="insight-item">$1</li>')
+        .replace(/^\* (.+)$/gm, '<li class="insight-item">$1</li>')
+        .replace(/(<li class="insight-item">.*<\/li>)/gs, '<ul class="insight-list">$1</ul>')
+        .replace(/\n/g, '<br>')
+        .trim();
+}
+
+// Add themed CSS styles for insights matching page design
+function addThemedInsightStyles() {
+    if (document.getElementById('themed-insight-styles')) return;
     
     const style = document.createElement('style');
-    style.id = 'insight-styles';
+    style.id = 'themed-insight-styles';
     style.textContent = `
-        .ai-insight {
-            background: linear-gradient(135deg, #be4e52ff 0%, #da4f54ff 100%);
-            border-radius: 12px;
-            padding: 20px;
-            margin: 20px 0;
-            color: white;
-            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        .themed-insight-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            transition: all 0.3s ease;
+            animation: fadeInUp 0.6s ease-out both;
         }
         
-        .insight-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+        .themed-insight-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.15);
+        }
+        
+        .insight-header-themed {
+            text-align: center;
+            margin-bottom: 25px;
+            position: relative;
+        }
+        
+        .insight-header-themed h2 {
+            font-size: 1.8rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .insight-header-themed p {
+            color: #666;
+            font-size: 1.1rem;
             margin-bottom: 15px;
-            border-bottom: 1px solid rgba(255,255,255,0.2);
-            padding-bottom: 10px;
         }
         
-        .insight-badge {
-            background: rgba(255,255,255,0.2);
-            padding: 4px 12px;
+        .gemini-badge {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 6px 16px;
             border-radius: 20px;
             font-size: 12px;
             font-weight: 500;
+            display: inline-block;
         }
         
-        .insight-content {
+        .insight-content-themed {
             line-height: 1.6;
-            margin: 15px 0;
+            margin: 25px 0;
         }
         
-        .insight-content h4 {
-            color: #ffffff;
-            margin: 15px 0 8px 0;
-            font-size: 16px;
+        .professional-section {
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, #f8f9ff 0%, #e3f2fd 100%);
+            border-radius: 15px;
+            padding: 20px;
+            border-left: 4px solid #667eea;
         }
         
-        .insight-content ul {
-            margin: 10px 0;
+        .section-header-pro {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 15px;
+        }
+        
+        .section-icon {
+            font-size: 20px;
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .section-header-pro h3 {
+            margin: 0;
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .section-body {
+            font-size: 1rem;
+            line-height: 1.6;
+            color: #555;
+        }
+        
+        .insight-list {
+            margin: 12px 0;
             padding-left: 20px;
         }
         
-        .insight-content li {
-            margin: 5px 0;
+        .insight-item {
+            margin: 8px 0;
+            color: #555;
         }
         
-        .insight-footer {
+        .highlight {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+        
+        .content-paragraph {
+            margin-bottom: 16px;
+            padding: 15px;
+            background: rgba(102, 126, 234, 0.05);
+            border-radius: 10px;
+            border-left: 3px solid #667eea;
+            color: #555;
+        }
+        
+        .insight-footer-themed {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-top: 15px;
-            padding-top: 10px;
-            border-top: 1px solid rgba(255,255,255,0.2);
+            margin-top: 25px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(102, 126, 234, 0.2);
         }
         
-        .refresh-btn, .retry-btn {
-            background: rgba(255,255,255,0.2);
-            border: 1px solid rgba(255,255,255,0.3);
+        .insight-footer-themed small {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        .refresh-btn-themed {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            padding: 6px 12px;
-            border-radius: 6px;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-size: 0.9rem;
+            font-weight: 500;
             cursor: pointer;
-            font-size: 12px;
             transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
         }
         
-        .refresh-btn:hover, .retry-btn:hover {
-            background: rgba(255,255,255,0.3);
-            transform: translateY(-1px);
+        .refresh-btn-themed:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
         }
         
         .loading-insight {
             text-align: center;
             padding: 40px;
-            color: #666;
+            color: #667eea;
             font-style: italic;
+            background: rgba(102, 126, 234, 0.1);
+            border-radius: 15px;
+            border: 2px dashed rgba(102, 126, 234, 0.3);
         }
         
         .insight-error {
-            background: #fee;
-            border: 1px solid #fcc;
-            border-radius: 8px;
-            padding: 20px;
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 15px;
             text-align: center;
-            color: #c33;
+            box-shadow: 0 10px 30px rgba(255, 107, 107, 0.3);
         }
         
-        .insight-error h3 {
-            margin: 0 0 10px 0;
-            color: #a00;
+        .retry-btn {
+            background: rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            margin-top: 15px;
+            transition: all 0.3s ease;
+        }
+        
+        .retry-btn:hover {
+            background: rgba(255,255,255,0.3);
+            transform: translateY(-1px);
         }
     `;
     document.head.appendChild(style);
@@ -975,3 +932,228 @@ function addInsightStyles() {
 
 // Initialize the application when the DOM is loaded
 document.addEventListener('DOMContentLoaded', init);
+
+// Show insight generation progress
+function showInsightProgress(container) {
+    let progress = 0;
+    container.innerHTML = `
+        <div class="loading-insight">
+            <div class="progress-container">
+                <div class="ai-thinking">🤖 AI is analyzing your profile...</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress-fill"></div>
+                </div>
+                <div class="progress-text" id="progress-text">Initializing...</div>
+            </div>
+        </div>
+    `;
+    
+    const progressFill = document.getElementById('progress-fill');
+    const progressText = document.getElementById('progress-text');
+    const messages = [
+        'Analyzing repositories...',
+        'Processing language data...',
+        'Generating insights...',
+        'Finalizing analysis...'
+    ];
+    
+    const interval = setInterval(() => {
+        progress += 25;
+        if (progressFill) progressFill.style.width = `${progress}%`;
+        if (progressText && messages[Math.floor(progress/25) - 1]) {
+            progressText.textContent = messages[Math.floor(progress/25) - 1];
+        }
+        if (progress >= 100) clearInterval(interval);
+    }, 3000);
+}
+// Download PDF report function
+async function downloadPDF() {
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const username = extractUsername(usernameInput.value.trim());
+    
+    // PDF styling
+    const primaryColor = [102, 126, 234];
+    const secondaryColor = [118, 75, 162];
+    
+    // Header with SMARRTIF AI branding
+    pdf.setFillColor(...primaryColor);
+    pdf.rect(0, 0, 210, 40, 'F');
+    
+    // Add SMARRTIF AI logo text
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFontSize(16);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('SMARRTIF AI', 20, 20);
+    
+    pdf.setFontSize(20);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('GitHub Profile Analysis Report', 20, 32);
+    
+    // Logo placeholder box
+    pdf.setDrawColor(255, 255, 255);
+    pdf.setLineWidth(1);
+    pdf.rect(160, 8, 40, 24);
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFontSize(10);
+    pdf.text('SMARRTIF', 170, 18);
+    pdf.text('AI', 180, 26);
+    
+    // User info
+    pdf.setTextColor(0, 0, 0);
+    pdf.setFontSize(16);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text(`Profile: ${username}`, 20, 55);
+    
+    pdf.setFontSize(10);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text(`Generated: ${new Date().toLocaleDateString()}`, 20, 65);
+    
+    let yPos = 80;
+    
+    // Profile Overview
+    const name = document.getElementById('name').textContent;
+    const bio = document.getElementById('bio').textContent;
+    const repos = document.getElementById('repos').textContent;
+    const followers = document.getElementById('followers').textContent;
+    const following = document.getElementById('following').textContent;
+    const rating = document.getElementById('profile-rating').textContent;
+    
+    pdf.setFontSize(14);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Profile Overview', 20, yPos);
+    yPos += 10;
+    
+    pdf.setFontSize(10);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text(`Name: ${name}`, 20, yPos);
+    yPos += 6;
+    pdf.text(`Bio: ${bio.substring(0, 80)}${bio.length > 80 ? '...' : ''}`, 20, yPos);
+    yPos += 6;
+    pdf.text(`Repositories: ${repos} | Followers: ${followers} | Following: ${following}`, 20, yPos);
+    yPos += 6;
+    pdf.text(`Rating: ${rating}/100`, 20, yPos);
+    yPos += 15;
+    
+    // GitHub Stats
+    pdf.setFontSize(14);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('GitHub Statistics', 20, yPos);
+    yPos += 10;
+    
+    const totalStars = document.getElementById('total-stars').textContent;
+    const totalCommits = document.getElementById('total-commits').textContent;
+    const totalPRs = document.getElementById('total-prs').textContent;
+    const totalIssues = document.getElementById('total-issues').textContent;
+    
+    pdf.setFontSize(10);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text(`Total Stars: ${totalStars}`, 20, yPos);
+    yPos += 6;
+    pdf.text(`Total Commits (${new Date().getFullYear()}): ${totalCommits}`, 20, yPos);
+    yPos += 6;
+    pdf.text(`Total Pull Requests: ${totalPRs}`, 20, yPos);
+    yPos += 6;
+    pdf.text(`Total Issues: ${totalIssues}`, 20, yPos);
+    yPos += 15;
+    
+    // Languages
+    pdf.setFontSize(14);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Most Used Languages', 20, yPos);
+    yPos += 10;
+    
+    const languageItems = document.querySelectorAll('.language-item span:last-child');
+    languageItems.forEach((item, index) => {
+        if (index < 5) { // Top 5 languages
+            pdf.setFontSize(10);
+            pdf.setFont('helvetica', 'normal');
+            pdf.text(`• ${item.textContent}`, 25, yPos);
+            yPos += 6;
+        }
+    });
+    
+    yPos += 10;
+    
+    // AI Insights - Extract from the actual insight content
+    const insightContainer = document.querySelector('.themed-insight-card .insight-content-themed');
+    if (insightContainer) {
+        pdf.setFontSize(14);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('AI Career Insights', 20, yPos);
+        yPos += 10;
+        
+        // Get the full text content and clean it
+        const fullText = insightContainer.textContent
+            .replace(/\s+/g, ' ')
+            .replace(/📊|💼|⭐|🎯|📈/g, '') // Remove emojis
+            .trim();
+        
+        if (fullText) {
+            pdf.setFontSize(9);
+            pdf.setFont('helvetica', 'normal');
+            const lines = pdf.splitTextToSize(fullText, 170);
+            
+            // Add content with proper line breaks
+            lines.slice(0, 15).forEach(line => {
+                if (yPos < 250) {
+                    pdf.text(line, 20, yPos);
+                    yPos += 4;
+                }
+            });
+        }
+    } else {
+        // Fallback: try to get from any insights container
+        const fallbackContainer = document.querySelector('#insightContainer');
+        if (fallbackContainer) {
+            const textContent = fallbackContainer.textContent
+                .replace(/🤖|AI is analyzing|Generated|Powered by|Refresh/g, '')
+                .replace(/\s+/g, ' ')
+                .trim();
+            
+            if (textContent && textContent.length > 50) {
+                pdf.setFontSize(14);
+                pdf.setFont('helvetica', 'bold');
+                pdf.text('AI Career Insights', 20, yPos);
+                yPos += 10;
+                
+                pdf.setFontSize(9);
+                pdf.setFont('helvetica', 'normal');
+                const lines = pdf.splitTextToSize(textContent, 170);
+                lines.slice(0, 15).forEach(line => {
+                    if (yPos < 250) {
+                        pdf.text(line, 20, yPos);
+                        yPos += 4;
+                    }
+                });
+            }
+        }
+    }
+    
+    // Footer with digital signature
+    pdf.setFillColor(240, 240, 240);
+    pdf.rect(0, 270, 210, 27, 'F');
+    
+    pdf.setTextColor(100, 100, 100);
+    pdf.setFontSize(8);
+    pdf.setFont('helvetica', 'italic');
+    pdf.text('This report is digitally signed and generated by SMARRTIF AI', 20, 285);
+    pdf.text('GitHub Profile Analyzer - Comprehensive Developer Analysis', 20, 290);
+    
+    // Digital signature box with logo
+    pdf.setDrawColor(...primaryColor);
+    pdf.setLineWidth(1);
+    pdf.rect(140, 275, 60, 15);
+    pdf.setTextColor(...primaryColor);
+    pdf.setFontSize(12);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('SMARRTIF AI', 150, 285);
+    
+    // Add verification text
+    pdf.setFontSize(8);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text('Digitally Verified', 145, 288);
+    
+    // Save PDF
+    pdf.save(`${username}_github_analysis_report.pdf`);
+}

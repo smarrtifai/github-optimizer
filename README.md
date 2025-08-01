@@ -6,20 +6,11 @@ A web-based tool designed to provide comprehensive and visually engaging insight
 
 - **Profile Overview**: Display essential profile details such as name, bio, follower count, and public repository count.
 
-- **Commit Activity Timeline**: A detailed line chart illustrating commit frequency over time with filtering options:
-  - Last 1 Month
-  - Last 3 Months
-  - Last 6 Months
-  - Last 1 Year
-  - All Time (from profile creation to present)
+- **Language Distribution (Repositories)**: A horizontal bar chart showcasing the breakdown of programming languages used across public repositories.
 
-- **Language Distribution (Repositories)**: A pie chart showcasing the breakdown of programming languages used across public repositories.
-
-- **Language Distribution (Commits)**: A pie chart visualizing commit activity by programming language.
-
-- **Recent Activity Stream**: A line chart detailing recent interactions, such as new repositories, pull requests, or issues.
-
-
+- **Recent Activity Stream**: A line chart detailing created pull requests, opened issues, and pushed commits with filtering options:
+  - Last 15 Days, 30 Days, 90 Days, 180 Days, 1 Year, and All Time.
+  - Shows comprehensive activity data based on the user's GitHub events.
 
 - **Repository Metrics**: A comprehensive dashboard of repository statistics including:
   - Total repositories (original vs. forked)
@@ -81,4 +72,3 @@ A web-based tool designed to provide comprehensive and visually engaging insight
    ```
 
    The backend will run on http://localhost:5000
-
