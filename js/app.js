@@ -597,10 +597,11 @@ async function generateAIInsights(username, repos, profileData, languageData) {
         if (data.error) {
             console.error("Insight Error:", data.error);
             if (insightContainer) {
+                const errorMsg = data.error.replace('GEMINI_API_KEY', 'GROQ_API_KEY').replace('Gemini', 'Groq');
                 insightContainer.innerHTML = `
                     <div class="insight-error">
                         <h3>⚠️ Insight Generation Failed</h3>
-                        <p>${data.error.replace('Gemini', 'Groq')}</p>
+                        <p>${errorMsg}</p>
                         <button onclick="generateAIInsights('${username}', [], {}, {})" class="retry-btn">
                             Try Again
                         </button>
@@ -620,7 +621,7 @@ async function generateAIInsights(username, repos, profileData, languageData) {
                     <div class="insight-header-themed">
                         <h2>🤖 AI Career Insights</h2>
                         <p>Personalized analysis for <strong>${username}</strong></p>
-                        <span class="groq-badge">Powered by Groq AI</span>
+                        <span class="groq-badge"></span>
                     </div>
                     <div class="insight-content-themed">
                         ${formattedInsight}
@@ -651,8 +652,8 @@ async function generateAIInsights(username, repos, profileData, languageData) {
         if (insightContainer) {
             const errorMessage = error.message.includes('Failed to fetch') 
                 ? 'Failed to connect to the server. Please check your connection.'
-                : error.message.includes('Gemini') 
-                ? error.message.replace('Gemini', 'Groq')
+                : error.message.includes('GEMINI_API_KEY') 
+                ? error.message.replace('GEMINI_API_KEY', 'GROQ_API_KEY').replace('Gemini', 'Groq')
                 : error.message;
                 
             insightContainer.innerHTML = `
