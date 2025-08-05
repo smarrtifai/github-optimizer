@@ -600,7 +600,7 @@ async function generateAIInsights(username, repos, profileData, languageData) {
                 insightContainer.innerHTML = `
                     <div class="insight-error">
                         <h3>⚠️ Insight Generation Failed</h3>
-                        <p>${data.error}</p>
+                        <p>${data.error.replace('Gemini', 'Groq')}</p>
                         <button onclick="generateAIInsights('${username}', [], {}, {})" class="retry-btn">
                             Try Again
                         </button>
@@ -620,7 +620,7 @@ async function generateAIInsights(username, repos, profileData, languageData) {
                     <div class="insight-header-themed">
                         <h2>🤖 AI Career Insights</h2>
                         <p>Personalized analysis for <strong>${username}</strong></p>
-                        <span class="gemini-badge">Powered by Gemini AI</span>
+                        <span class="groq-badge">Powered by Groq AI</span>
                     </div>
                     <div class="insight-content-themed">
                         ${formattedInsight}
@@ -650,7 +650,9 @@ async function generateAIInsights(username, repos, profileData, languageData) {
         // Better error handling - show in UI instead of alert
         if (insightContainer) {
             const errorMessage = error.message.includes('Failed to fetch') 
-                ? 'Failed to connect to the server. Please check if the backend is running on http://localhost:5000'
+                ? 'Failed to connect to the server. Please check your connection.'
+                : error.message.includes('Gemini') 
+                ? error.message.replace('Gemini', 'Groq')
                 : error.message;
                 
             insightContainer.innerHTML = `
@@ -667,7 +669,7 @@ async function generateAIInsights(username, repos, profileData, languageData) {
     }
 }
 
-// Format Gemini response with professional structure
+// Format Groq response with professional structure
 function formatProfessionalInsight(insight) {
     const sections = insight.split(/\n\n+/);
     let formattedContent = '';
@@ -776,8 +778,8 @@ function addThemedInsightStyles() {
             margin-bottom: 15px;
         }
         
-        .gemini-badge {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        .groq-badge {
+            background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
             color: white;
             padding: 6px 16px;
             border-radius: 20px;
