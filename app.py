@@ -5,10 +5,8 @@ import datetime
 import random
 import os
 from dotenv import load_dotenv
-import google.generativeai as genai
 from pymongo import MongoClient
 from pymongo.errors import ConnectionFailure
-from google.generativeai.types import GenerationConfig
 
 # Load environment variables from .env file
 load_dotenv()
@@ -617,24 +615,21 @@ def get_activity(username):
         return jsonify({'error': 'An unexpected internal server error occurred.'}), 500
     
 #################################################################
-# Gemini AI Integration and additional routes
+# Groq AI Integration and additional routes
 #################################################################
 
-GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')  # Required for AI insights
+GROQ_API_KEY = os.getenv('GROQ_API_KEY')  # Required for AI insights
+GROQ_MODEL = "llama3-70b-8192"
+GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 
-# Initialize Gemini AI
-gemini_model = None
-if GEMINI_API_KEY:
-    try:
-        genai.configure(api_key=GEMINI_API_KEY)
-        gemini_model = genai.GenerativeModel('gemini-1.5-flash')
-        print("✅ Gemini AI initialized successfully")
-    except Exception as e:
-        print(f"❌ Failed to initialize Gemini AI: {e}")
-        gemini_model = None
+# Initialize Groq AI
+groq_configured = False
+if GROQ_API_KEY:
+    groq_configured = True
+    print("✅ Groq AI initialized successfully")
 else:
-    print("⚠️ GEMINI_API_KEY not found in environment variables. AI insights will not work.")
-    print("   Please add GEMINI_API_KEY=your_api_key to your .env file")
+    print("⚠️ GROQ_API_KEY not found in environment variables. AI insights will not work.")
+    print("   Please add GROQ_API_KEY=your_api_key to your .env file")
 
 # Helper function to get GitHub headers
 def get_github_headers():
@@ -662,19 +657,19 @@ def status():
     return jsonify({
         'message': 'GitHub Profile Analyzer API',
         'status': 'running',
-        'gemini_configured': gemini_model is not None,
+        'groq_configured': groq_configured,
         'github_token_configured': GITHUB_TOKEN is not None,
         'mongodb_configured': db is not None
     })
 
 @app.route('/api/insights/<username>')
 def generate_insights(username):
-    """Generate Gemini-powered career insights based on GitHub profile"""
+    """Generate Groq-powered career insights based on GitHub profile"""
     try:
-        # Check if Gemini is configured
-        if not gemini_model:
+        # Check if Groq is configured
+        if not groq_configured:
             return jsonify({
-                'error': 'Gemini AI is not configured. Please check your GEMINI_API_KEY in .env file'
+                'error': 'Groq AI is not configured. Please check your GROQ_API_KEY in .env file'
             }), 500
 
         # Get GitHub headers
@@ -723,7 +718,7 @@ def generate_insights(username):
         account_age_days = (datetime.datetime.now() - created_date).days
         account_age_years = round(account_age_days / 365, 1)
 
-        # 4. Construct Optimized Prompt for Gemini
+        # 4. Construct Optimized Prompt for Groq
         prompt = f"""
 Analyze GitHub developer {username}:
 
@@ -749,21 +744,30 @@ Provide concise insights in 4 sections:
 Keep response under 500 words. Be specific and actionable.
 """
 
-
-
-        # 5. Query Gemini API
+        # 5. Query Groq API
         try:
-            print(f"🤖 Calling Gemini API for {username}...")
-            generation_config = GenerationConfig(
-                temperature=0.5,
-                top_p=0.8,
-                max_output_tokens=1024
-            )
-            gemini_response = gemini_model.generate_content(
-                prompt,
-                generation_config=generation_config
-            )
-            insight_text = gemini_response.text
+            print(f"🤖 Calling Groq API for {username}...")
+            
+            payload = {
+                "model": GROQ_MODEL,
+                "messages": [
+                    {"role": "system", "content": "You are a GitHub profile analysis expert. Provide detailed, actionable career insights based on GitHub activity."},
+                    {"role": "user", "content": prompt}
+                ],
+                "temperature": 0.7,
+                "max_tokens": 1024
+            }
+            
+            headers = {
+                "Authorization": f"Bearer {GROQ_API_KEY}",
+                "Content-Type": "application/json"
+            }
+            
+            groq_response = requests.post(GROQ_API_URL, json=payload, headers=headers, timeout=30)
+            groq_response.raise_for_status()
+            
+            result = groq_response.json()
+            insight_text = result["choices"][0]["message"]["content"]
             
             # Basic validation
             if not insight_text or len(insight_text.strip()) < 50:
@@ -801,9 +805,9 @@ Keep response under 500 words. Be specific and actionable.
                 }
             })
             
-        except Exception as gemini_error:
-            print(f"❌ Gemini API error: {gemini_error}")
-            return jsonify({'error': f'AI insight generation failed: {str(gemini_error)}'}), 500
+        except Exception as groq_error:
+            print(f"❌ Groq API error: {groq_error}")
+            return jsonify({'error': f'AI insight generation failed: {str(groq_error)}'}), 500
 
     except requests.RequestException as req_error:
         print(f"❌ GitHub API request failed: {req_error}")
