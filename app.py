@@ -405,31 +405,46 @@ def get_activity(username):
         num_days = days_map.get(time_range, 30)
         start_date = end_date - datetime.timedelta(days=num_days)
         
-        # Fetch user events with better pagination
+        # Enhanced event fetching with better error handling
         events = []
-        max_pages = 15 if time_range in ['all', '1year'] else 8  # More pages for longer ranges
+        max_pages = 20 if time_range in ['all', '1year'] else 10  # Increased pages for better coverage
+        
+        print(f"Fetching events for {username} with time range {time_range}")
         
         for page in range(1, max_pages + 1):
-            events_response = requests.get(
-                f'https://api.github.com/users/{username}/events',
-                headers=HEADERS,
-                params={'per_page': 100, 'page': page}
-            )
-            if not events_response.ok:
-                print(f"Failed to fetch events page {page}: {events_response.status_code}")
-                break
-            
-            page_events = events_response.json()
-            if not page_events:
-                break
-            
-            events.extend(page_events)
-            
-            # Stop early if we have events older than our time range
-            if page_events:
-                oldest_event_date = datetime.datetime.strptime(page_events[-1]['created_at'], '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=datetime.timezone.utc)
-                if oldest_event_date < start_date:
+            try:
+                events_response = requests.get(
+                    f'https://api.github.com/users/{username}/events',
+                    headers=HEADERS,
+                    params={'per_page': 100, 'page': page},
+                    timeout=10
+                )
+                
+                if not events_response.ok:
+                    print(f"Failed to fetch events page {page}: {events_response.status_code}")
+                    if events_response.status_code == 403:  # Rate limit
+                        print("Rate limit hit, using available events")
+                        break
+                    continue
+                
+                page_events = events_response.json()
+                if not page_events:
+                    print(f"No more events at page {page}")
                     break
+                
+                events.extend(page_events)
+                print(f"Fetched {len(page_events)} events from page {page}")
+                
+                # Stop early if we have events older than our time range
+                if page_events:
+                    oldest_event_date = datetime.datetime.strptime(page_events[-1]['created_at'], '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=datetime.timezone.utc)
+                    if oldest_event_date < start_date:
+                        print(f"Reached events older than time range at page {page}")
+                        break
+                        
+            except Exception as e:
+                print(f"Error fetching page {page}: {e}")
+                break
         
         # Create date strings for the specified time range
         date_keys = [(start_date + datetime.timedelta(days=i)).strftime('%Y-%m-%d') for i in range(num_days + 1)]
@@ -440,25 +455,47 @@ def get_activity(username):
             'commits': {d: 0 for d in date_keys}
         }
 
-        # Process events
+        # Process events with better commit tracking
+        print(f"Processing {len(events)} events for {username}")
+        
         for event in events:
-            event_date_utc = datetime.datetime.strptime(event['created_at'], '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=datetime.timezone.utc)
-            if start_date <= event_date_utc <= end_date:
-                date_str = event_date_utc.strftime('%Y-%m-%d')
-                
-                # More accurate event processing
-                if event['type'] == 'PushEvent':
-                    commits = event['payload'].get('commits', [])
-                    if commits:  # Only count if there are actual commits
-                        activity['commits'][date_str] += len(commits)
-                elif event['type'] == 'PullRequestEvent':
-                    action = event['payload'].get('action')
-                    if action in ['opened', 'reopened']:  # Count both opened and reopened PRs
-                        activity['pullRequests'][date_str] += 1
-                elif event['type'] == 'IssuesEvent':
-                    action = event['payload'].get('action')
-                    if action in ['opened', 'reopened']:  # Count both opened and reopened issues
-                        activity['issues'][date_str] += 1
+            try:
+                event_date_utc = datetime.datetime.strptime(event['created_at'], '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=datetime.timezone.utc)
+                if start_date <= event_date_utc <= end_date:
+                    date_str = event_date_utc.strftime('%Y-%m-%d')
+                    
+                    if date_str in activity['commits']:  # Ensure date exists in our range
+                        # Enhanced commit processing
+                        if event['type'] == 'PushEvent':
+                            payload = event.get('payload', {})
+                            commits = payload.get('commits', [])
+                            
+                            # Count actual commits, not just push events
+                            if commits and isinstance(commits, list):
+                                commit_count = len([c for c in commits if c.get('sha')])  # Only count commits with SHA
+                                if commit_count > 0:
+                                    activity['commits'][date_str] += commit_count
+                                    print(f"Added {commit_count} commits on {date_str}")
+                        
+                        elif event['type'] == 'PullRequestEvent':
+                            action = event.get('payload', {}).get('action')
+                            if action in ['opened', 'reopened']:
+                                activity['pullRequests'][date_str] += 1
+                        
+                        elif event['type'] == 'IssuesEvent':
+                            action = event.get('payload', {}).get('action')
+                            if action in ['opened', 'reopened']:
+                                activity['issues'][date_str] += 1
+            except Exception as e:
+                print(f"Error processing event: {e}")
+                continue
+        
+        # Calculate totals for debugging
+        total_commits = sum(activity['commits'][d] for d in date_keys)
+        total_prs = sum(activity['pullRequests'][d] for d in date_keys)
+        total_issues = sum(activity['issues'][d] for d in date_keys)
+        
+        print(f"Activity summary for {username}: {total_commits} commits, {total_prs} PRs, {total_issues} issues")
         
         # Format for chart
         return jsonify({
@@ -467,6 +504,12 @@ def get_activity(username):
                 'pullRequests': [activity['pullRequests'][d] for d in date_keys],
                 'issues': [activity['issues'][d] for d in date_keys],
                 'commits': [activity['commits'][d] for d in date_keys]
+            },
+            'summary': {
+                'total_commits': total_commits,
+                'total_prs': total_prs,
+                'total_issues': total_issues,
+                'events_processed': len(events)
             }
         })
     except requests.exceptions.RequestException as e:
