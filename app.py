@@ -393,111 +393,207 @@ def get_commits(username):
 
 @app.route('/api/activity/<username>')
 def get_activity(username):
-    """Get recent activity for a user from the GitHub Events API with time filtering."""
+    """Get real commit activity using repository-based approach for accurate data."""
     try:
         time_range = request.args.get('timeRange', '1month')
         end_date = datetime.datetime.now(datetime.timezone.utc)
         
         days_map = {
             '15days': 15, '1month': 30, '3months': 90, 
-            '6months': 180, '1year': 365, 'all': 1095 # Approx 3 years for 'all'
+            '6months': 180, '1year': 365, 'all': 1095
         }
         num_days = days_map.get(time_range, 30)
         start_date = end_date - datetime.timedelta(days=num_days)
         
-        # Enhanced event fetching with better error handling
-        events = []
-        max_pages = 20 if time_range in ['all', '1year'] else 10  # Increased pages for better coverage
-        
-        print(f"Fetching events for {username} with time range {time_range}")
-        
-        for page in range(1, max_pages + 1):
-            try:
-                events_response = requests.get(
-                    f'https://api.github.com/users/{username}/events',
-                    headers=HEADERS,
-                    params={'per_page': 100, 'page': page},
-                    timeout=10
-                )
-                
-                if not events_response.ok:
-                    print(f"Failed to fetch events page {page}: {events_response.status_code}")
-                    if events_response.status_code == 403:  # Rate limit
-                        print("Rate limit hit, using available events")
-                        break
-                    continue
-                
-                page_events = events_response.json()
-                if not page_events:
-                    print(f"No more events at page {page}")
-                    break
-                
-                events.extend(page_events)
-                print(f"Fetched {len(page_events)} events from page {page}")
-                
-                # Stop early if we have events older than our time range
-                if page_events:
-                    oldest_event_date = datetime.datetime.strptime(page_events[-1]['created_at'], '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=datetime.timezone.utc)
-                    if oldest_event_date < start_date:
-                        print(f"Reached events older than time range at page {page}")
-                        break
-                        
-            except Exception as e:
-                print(f"Error fetching page {page}: {e}")
-                break
-        
-        # Create date strings for the specified time range
+        # Initialize activity tracking
         date_keys = [(start_date + datetime.timedelta(days=i)).strftime('%Y-%m-%d') for i in range(num_days + 1)]
-        
         activity = {
             'pullRequests': {d: 0 for d in date_keys},
             'issues': {d: 0 for d in date_keys},
             'commits': {d: 0 for d in date_keys}
         }
-
-        # Process events with better commit tracking
-        print(f"Processing {len(events)} events for {username}")
         
-        for event in events:
+        # Method 1: Use Search API for commits (more comprehensive)
+        try:
+            start_search = start_date.strftime('%Y-%m-%d')
+            end_search = end_date.strftime('%Y-%m-%d')
+            
+            # Search for commits by author in the date range
+            commits_response = requests.get(
+                f'https://api.github.com/search/commits',
+                headers={**HEADERS, 'Accept': 'application/vnd.github.cloak-preview'},
+                params={
+                    'q': f'author:{username} committer-date:{start_search}..{end_search}',
+                    'per_page': 100,
+                    'sort': 'committer-date'
+                },
+                timeout=15
+            )
+            
+            if commits_response.ok:
+                commits_data = commits_response.json()
+                commits = commits_data.get('items', [])
+                
+                print(f"Found {len(commits)} commits via search API")
+                
+                for commit in commits:
+                    try:
+                        # Use committer date for more accuracy
+                        commit_date_str = commit['commit']['committer']['date']
+                        commit_date = datetime.datetime.strptime(commit_date_str, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=datetime.timezone.utc)
+                        
+                        if start_date <= commit_date <= end_date:
+                            date_key = commit_date.strftime('%Y-%m-%d')
+                            if date_key in activity['commits']:
+                                activity['commits'][date_key] += 1
+                    except Exception as e:
+                        continue
+            else:
+                print(f"Search API failed: {commits_response.status_code}")
+                
+        except Exception as e:
+            print(f"Error with search API: {e}")
+        
+        # Method 2: Fallback to Events API for recent activity (last 90 days)
+        if sum(activity['commits'].values()) == 0 and num_days <= 90:
             try:
-                event_date_utc = datetime.datetime.strptime(event['created_at'], '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=datetime.timezone.utc)
-                if start_date <= event_date_utc <= end_date:
-                    date_str = event_date_utc.strftime('%Y-%m-%d')
+                events_response = requests.get(
+                    f'https://api.github.com/users/{username}/events',
+                    headers=HEADERS,
+                    params={'per_page': 100}
+                )
+                
+                if events_response.ok:
+                    events = events_response.json()
+                    print(f"Fallback: Processing {len(events)} events")
                     
-                    if date_str in activity['commits']:  # Ensure date exists in our range
-                        # Enhanced commit processing
+                    for event in events:
                         if event['type'] == 'PushEvent':
-                            payload = event.get('payload', {})
-                            commits = payload.get('commits', [])
-                            
-                            # Count actual commits, not just push events
-                            if commits and isinstance(commits, list):
-                                commit_count = len([c for c in commits if c.get('sha')])  # Only count commits with SHA
-                                if commit_count > 0:
-                                    activity['commits'][date_str] += commit_count
-                                    print(f"Added {commit_count} commits on {date_str}")
-                        
-                        elif event['type'] == 'PullRequestEvent':
-                            action = event.get('payload', {}).get('action')
-                            if action in ['opened', 'reopened']:
-                                activity['pullRequests'][date_str] += 1
-                        
-                        elif event['type'] == 'IssuesEvent':
-                            action = event.get('payload', {}).get('action')
-                            if action in ['opened', 'reopened']:
-                                activity['issues'][date_str] += 1
+                            try:
+                                event_date = datetime.datetime.strptime(event['created_at'], '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=datetime.timezone.utc)
+                                
+                                if start_date <= event_date <= end_date:
+                                    date_key = event_date.strftime('%Y-%m-%d')
+                                    if date_key in activity['commits']:
+                                        commits_in_push = len(event.get('payload', {}).get('commits', []))
+                                        activity['commits'][date_key] += commits_in_push
+                            except Exception:
+                                continue
+                                
             except Exception as e:
-                print(f"Error processing event: {e}")
-                continue
+                print(f"Events API fallback failed: {e}")
         
-        # Calculate totals for debugging
+        # Get PRs and Issues using search API for the time range
+        try:
+            # Format dates for search API
+            start_search = start_date.strftime('%Y-%m-%d')
+            end_search = end_date.strftime('%Y-%m-%d')
+            
+            # Get PRs
+            pr_response = requests.get(
+                f'https://api.github.com/search/issues',
+                headers=HEADERS,
+                params={
+                    'q': f'author:{username} type:pr created:{start_search}..{end_search}',
+                    'per_page': 100
+                }
+            )
+            
+            if pr_response.ok:
+                prs = pr_response.json().get('items', [])
+                for pr in prs:
+                    try:
+                        created_date = datetime.datetime.strptime(pr['created_at'], '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=datetime.timezone.utc)
+                        date_key = created_date.strftime('%Y-%m-%d')
+                        if date_key in activity['pullRequests']:
+                            activity['pullRequests'][date_key] += 1
+                    except Exception:
+                        continue
+            
+            # Get Issues
+            issue_response = requests.get(
+                f'https://api.github.com/search/issues',
+                headers=HEADERS,
+                params={
+                    'q': f'author:{username} type:issue created:{start_search}..{end_search}',
+                    'per_page': 100
+                }
+            )
+            
+            if issue_response.ok:
+                issues = issue_response.json().get('items', [])
+                for issue in issues:
+                    try:
+                        created_date = datetime.datetime.strptime(issue['created_at'], '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=datetime.timezone.utc)
+                        date_key = created_date.strftime('%Y-%m-%d')
+                        if date_key in activity['issues']:
+                            activity['issues'][date_key] += 1
+                    except Exception:
+                        continue
+                        
+        except Exception as e:
+            print(f"Error fetching PRs/Issues: {e}")
+        
+        # Calculate totals
         total_commits = sum(activity['commits'][d] for d in date_keys)
         total_prs = sum(activity['pullRequests'][d] for d in date_keys)
         total_issues = sum(activity['issues'][d] for d in date_keys)
         
-        print(f"Activity summary for {username}: {total_commits} commits, {total_prs} PRs, {total_issues} issues")
+        print(f"Real activity for {username}: {total_commits} commits, {total_prs} PRs, {total_issues} issues")
         
-        # Format for chart
+        # If still no commits found, try one more method with user's repos
+        if total_commits == 0:
+            try:
+                repos_response = requests.get(
+                    f'https://api.github.com/users/{username}/repos',
+                    headers=HEADERS,
+                    params={'per_page': 50, 'sort': 'updated'}
+                )
+                
+                if repos_response.ok:
+                    repos = repos_response.json()
+                    print(f"Checking {len(repos)} repositories for commits")
+                    
+                    for repo in repos[:10]:  # Check top 10 repos
+                        try:
+                            since_param = start_date.strftime('%Y-%m-%dT%H:%M:%SZ')
+                            
+                            repo_commits_response = requests.get(
+                                f"https://api.github.com/repos/{repo['full_name']}/commits",
+                                headers=HEADERS,
+                                params={
+                                    'author': username,
+                                    'since': since_param,
+                                    'per_page': 50
+                                },
+                                timeout=5
+                            )
+                            
+                            if repo_commits_response.ok:
+                                repo_commits = repo_commits_response.json()
+                                
+                                for commit in repo_commits:
+                                    try:
+                                        commit_date_str = commit['commit']['author']['date']
+                                        commit_date = datetime.datetime.strptime(commit_date_str, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=datetime.timezone.utc)
+                                        
+                                        if start_date <= commit_date <= end_date:
+                                            date_key = commit_date.strftime('%Y-%m-%d')
+                                            if date_key in activity['commits']:
+                                                activity['commits'][date_key] += 1
+                                    except Exception:
+                                        continue
+                                        
+                        except Exception as e:
+                            continue
+                            
+                    # Recalculate total after repo check
+                    total_commits = sum(activity['commits'][d] for d in date_keys)
+                    print(f"After repo check: {total_commits} commits found")
+                    
+            except Exception as e:
+                print(f"Repository fallback failed: {e}")
+        
         return jsonify({
             'dates': date_keys,
             'activities': {
@@ -509,9 +605,10 @@ def get_activity(username):
                 'total_commits': total_commits,
                 'total_prs': total_prs,
                 'total_issues': total_issues,
-                'events_processed': len(events)
+                'method': 'comprehensive_search'
             }
         })
+        
     except requests.exceptions.RequestException as e:
         print(f"❌ Request error fetching activity for {username}: {e}")
         return jsonify({'error': 'A network or API error occurred while fetching activity.'}), 500
