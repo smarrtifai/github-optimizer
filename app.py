@@ -95,63 +95,101 @@ def get_profile(username):
             print(f"Error fetching issue data: {e}")
             stats['total_issues'] = 0
         
-        # Get repositories contributed to
-        # This is an approximation as GitHub API doesn't provide this directly
+        # Get repositories contributed to with better accuracy
         try:
-            events_response = requests.get(
-                f'https://api.github.com/users/{username}/events',
-                headers=HEADERS
-            )
-            if events_response.ok:
-                events_data = events_response.json()
-                # Get unique repos from push events in the last year
-                one_year_ago = datetime.datetime.now() - datetime.timedelta(days=365)
-                contributed_repos = set()
-                
-                for event in events_data:
-                    event_date = datetime.datetime.strptime(event['created_at'], '%Y-%m-%dT%H:%M:%SZ')
-                    if event_date > one_year_ago and event['type'] in ['PushEvent', 'PullRequestEvent']:
+            # Fetch more events for better contribution tracking
+            all_events = []
+            for page in range(1, 6):  # Get up to 5 pages
+                events_response = requests.get(
+                    f'https://api.github.com/users/{username}/events',
+                    headers=HEADERS,
+                    params={'per_page': 100, 'page': page}
+                )
+                if events_response.ok:
+                    page_events = events_response.json()
+                    if not page_events:
+                        break
+                    all_events.extend(page_events)
+                else:
+                    break
+            
+            # Get unique repos from various events in the last year
+            one_year_ago = datetime.datetime.now() - datetime.timedelta(days=365)
+            contributed_repos = set()
+            
+            for event in all_events:
+                event_date = datetime.datetime.strptime(event['created_at'], '%Y-%m-%dT%H:%M:%SZ')
+                if event_date > one_year_ago:
+                    # Include more event types for better tracking
+                    if event['type'] in ['PushEvent', 'PullRequestEvent', 'IssuesEvent', 'CreateEvent', 'ForkEvent']:
                         if 'repo' in event:
                             contributed_repos.add(event['repo']['name'])
-                
-                stats['contributed_to'] = len(contributed_repos)
-            else:
-                stats['contributed_to'] = 0
+            
+            stats['contributed_to'] = len(contributed_repos)
         except Exception as e:
             print(f"Error fetching events data: {e}")
             stats['contributed_to'] = 0
         
-        # Get commit count (approximate)
+        # Get commit count using GraphQL-style approach with events
         current_year = datetime.datetime.now().year
         try:
-            # This is a rough approximation as GitHub API doesn't provide total commits easily
-            # We'll check the user's events for PushEvents
             commit_count = 0
-            for event in events_data if 'events_data' in locals() else []:
-                event_date = datetime.datetime.strptime(event['created_at'], '%Y-%m-%dT%H:%M:%SZ')
-                if event_date.year == current_year and event['type'] == 'PushEvent':
-                    if 'payload' in event and 'commits' in event['payload']:
-                        commit_count += len(event['payload']['commits'])
+            # Fetch more events for better accuracy
+            all_events = []
+            for page in range(1, 6):  # Get up to 5 pages (500 events)
+                events_response = requests.get(
+                    f'https://api.github.com/users/{username}/events',
+                    headers=HEADERS,
+                    params={'per_page': 100, 'page': page}
+                )
+                if events_response.ok:
+                    page_events = events_response.json()
+                    if not page_events:
+                        break
+                    all_events.extend(page_events)
+                else:
+                    break
+            
+            # Count commits from current year
+            for event in all_events:
+                if event['type'] == 'PushEvent':
+                    event_date = datetime.datetime.strptime(event['created_at'], '%Y-%m-%dT%H:%M:%SZ')
+                    if event_date.year == current_year:
+                        if 'payload' in event and 'commits' in event['payload']:
+                            commit_count += len(event['payload']['commits'])
             
             stats['commits_current_year'] = commit_count
         except Exception as e:
             print(f"Error calculating commit count: {e}")
             stats['commits_current_year'] = 0
 
-        # --- Calculate rating score ---
-        def calculate_rating(stars, commits, prs, contributions):
-            star_score = min(30, stars * 0.8)
-            commit_score = min(25, commits * 0.15)
-            pr_score = min(25, prs * 1.2)
-            contribution_score = min(20, contributions * 3)
-            total_score = round(star_score + commit_score + pr_score + contribution_score)
+        # --- Enhanced rating calculation ---
+        def calculate_rating(profile, stars, commits, prs, issues, contributions, repos_count):
+            # Base scores with better weighting
+            star_score = min(25, stars * 0.5)  # Stars are important but not everything
+            commit_score = min(20, commits * 0.1)  # Recent activity matters
+            pr_score = min(15, prs * 0.3)  # PRs show collaboration
+            issue_score = min(10, issues * 0.2)  # Issues show engagement
+            contribution_score = min(15, contributions * 2)  # Diverse contributions
+            
+            # Account age bonus (more mature accounts get slight bonus)
+            account_age_days = (datetime.datetime.now() - datetime.datetime.strptime(profile['created_at'], '%Y-%m-%dT%H:%M:%SZ')).days
+            age_bonus = min(5, account_age_days / 365)  # Max 5 points for 1+ year accounts
+            
+            # Repository quality bonus
+            repo_bonus = min(10, repos_count * 0.5)  # Quality over quantity
+            
+            total_score = round(star_score + commit_score + pr_score + issue_score + contribution_score + age_bonus + repo_bonus)
             return max(0, min(100, total_score))
 
         rating = calculate_rating(
+            profile_data,
             stats.get('total_stars', 0),
             stats.get('commits_current_year', 0),
             stats.get('total_prs', 0),
-            stats.get('contributed_to', 0)
+            stats.get('total_issues', 0),
+            stats.get('contributed_to', 0),
+            profile_data.get('public_repos', 0)
         )
         stats['rating'] = rating
         # --- Save/Update profile in MongoDB ---
@@ -367,9 +405,10 @@ def get_activity(username):
         num_days = days_map.get(time_range, 30)
         start_date = end_date - datetime.timedelta(days=num_days)
         
-        # Fetch user events (paginated)
+        # Fetch user events with better pagination
         events = []
-        max_pages = 10 if time_range == 'all' else 4  # More pages for 'all' time range
+        max_pages = 15 if time_range in ['all', '1year'] else 8  # More pages for longer ranges
+        
         for page in range(1, max_pages + 1):
             events_response = requests.get(
                 f'https://api.github.com/users/{username}/events',
@@ -377,11 +416,20 @@ def get_activity(username):
                 params={'per_page': 100, 'page': page}
             )
             if not events_response.ok:
+                print(f"Failed to fetch events page {page}: {events_response.status_code}")
                 break
+            
             page_events = events_response.json()
             if not page_events:
                 break
+            
             events.extend(page_events)
+            
+            # Stop early if we have events older than our time range
+            if page_events:
+                oldest_event_date = datetime.datetime.strptime(page_events[-1]['created_at'], '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=datetime.timezone.utc)
+                if oldest_event_date < start_date:
+                    break
         
         # Create date strings for the specified time range
         date_keys = [(start_date + datetime.timedelta(days=i)).strftime('%Y-%m-%d') for i in range(num_days + 1)]
@@ -398,12 +446,19 @@ def get_activity(username):
             if start_date <= event_date_utc <= end_date:
                 date_str = event_date_utc.strftime('%Y-%m-%d')
                 
+                # More accurate event processing
                 if event['type'] == 'PushEvent':
-                    activity['commits'][date_str] += len(event['payload'].get('commits', []))
-                elif event['type'] == 'PullRequestEvent' and event['payload'].get('action') == 'opened':
-                    activity['pullRequests'][date_str] += 1
-                elif event['type'] == 'IssuesEvent' and event['payload'].get('action') == 'opened':
-                    activity['issues'][date_str] += 1
+                    commits = event['payload'].get('commits', [])
+                    if commits:  # Only count if there are actual commits
+                        activity['commits'][date_str] += len(commits)
+                elif event['type'] == 'PullRequestEvent':
+                    action = event['payload'].get('action')
+                    if action in ['opened', 'reopened']:  # Count both opened and reopened PRs
+                        activity['pullRequests'][date_str] += 1
+                elif event['type'] == 'IssuesEvent':
+                    action = event['payload'].get('action')
+                    if action in ['opened', 'reopened']:  # Count both opened and reopened issues
+                        activity['issues'][date_str] += 1
         
         # Format for chart
         return jsonify({
