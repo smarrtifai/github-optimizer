@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 import requests
 import datetime
@@ -452,9 +452,18 @@ def get_github_headers():
         headers['Authorization'] = f'token {GITHUB_TOKEN}'
     return headers
 
-# Test route
+# Serve frontend
 @app.route('/')
-def home():
+def index():
+    return send_from_directory('.', 'index.html')
+
+@app.route('/<path:filename>')
+def static_files(filename):
+    return send_from_directory('.', filename)
+
+# API status route
+@app.route('/api/status')
+def status():
     return jsonify({
         'message': 'GitHub Profile Analyzer API',
         'status': 'running',

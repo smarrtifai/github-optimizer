@@ -11,7 +11,7 @@ let activityStreamChart = null;
 
 
 // Backend API base URL
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = 'https://github-optimizer.onrender.com/api';
 
 // Initialize the application
 function init() {
