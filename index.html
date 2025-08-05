@@ -21,19 +21,19 @@
         </header>
 
         <div class="search-container">
-            <input type="text" id="username" placeholder="Enter GitHub username or profile URL">
-            <button id="analyze-btn">Analyze</button>
+            <input type="text" id="username" placeholder="Enter GitHub username" aria-label="GitHub username">
+            <button id="analyze-btn" type="button">Analyze Profile</button>
         </div>
         
         <div id="download-container" class="hidden download-container">
-            <button id="download-pdf-btn" class="download-btn">
-                📄 Download PDF Report
+            <button id="download-pdf-btn" class="download-btn" type="button">
+                <span>📄</span> Download Report
             </button>
         </div>
 
         <div id="loading" class="hidden">
-            <div class="spinner"></div>
-            <p>Fetching profile data...</p>
+            <div class="spinner" aria-hidden="true"></div>
+            <p>Analyzing GitHub profile...</p>
         </div>
 
         <div id="error-message" class="hidden"></div>
@@ -130,12 +130,12 @@
                 <h2>Recent Activity Stream</h2>
                 <div class="filter-container">
                     <label for="activity-time-filter">Time Range:</label>
-                    <select id="activity-time-filter">
-                        <option value="15days">Last 15 Days</option>
-                        <option value="1month" selected>Last 30 Days</option>
-                        <option value="3months">Last 90 Days</option>
-                        <option value="6months">Last 180 Days</option>
-                        <option value="1year">Last 1 Year</option>
+                    <select id="activity-time-filter" aria-label="Select time range for activity data">
+                        <option value="15days">15 Days</option>
+                        <option value="1month" selected>30 Days</option>
+                        <option value="3months">90 Days</option>
+                        <option value="6months">6 Months</option>
+                        <option value="1year">1 Year</option>
                         <option value="all">All Time</option>
                     </select>
                 </div>
@@ -143,12 +143,13 @@
                     <canvas id="activity-stream"></canvas>
                 </div>
             </section>
+        
 
             <section class="card">
                 <h2>AI Insights</h2>
                 <div id="insightContainer" class="insights-container">
                     <div class="loading-insight">
-                        <p>🚀 AI insights will appear here after analysis...</p>
+                        <p>🤖 AI insights will appear here after analysis...</p>
                     </div>
                 </div>
             </section>

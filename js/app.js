@@ -974,32 +974,49 @@ async function downloadPDF() {
     
     // PDF styling
     const primaryColor = [102, 126, 234];
-    const secondaryColor = [118, 75, 162];
+    const pageHeight = 297;
+    const marginBottom = 30;
+    let currentPage = 1;
     
-    // Header with SMARRTIF AI branding
-    pdf.setFillColor(...primaryColor);
-    pdf.rect(0, 0, 210, 40, 'F');
+    // Function to add header to each page
+    function addHeader(pageNum) {
+        pdf.setFillColor(...primaryColor);
+        pdf.rect(0, 0, 210, 40, 'F');
+        
+        pdf.setTextColor(255, 255, 255);
+        pdf.setFontSize(16);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('SMARRTIF AI', 20, 20);
+        
+        pdf.setFontSize(20);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('GitHub Profile Analysis Report', 20, 32);
+        
+        pdf.setDrawColor(255, 255, 255);
+        pdf.setLineWidth(1);
+        pdf.rect(160, 8, 40, 24);
+        pdf.setTextColor(255, 255, 255);
+        pdf.setFontSize(10);
+        pdf.text('SMARRTIF', 170, 18);
+        pdf.text('AI', 180, 26);
+        
+        pdf.setFontSize(8);
+        pdf.text(`Page ${pageNum}`, 185, 35);
+    }
     
-    // Add SMARRTIF AI logo text
-    pdf.setTextColor(255, 255, 255);
-    pdf.setFontSize(16);
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('SMARRTIF AI', 20, 20);
+    // Function to check if new page is needed
+    function checkNewPage(yPos, requiredSpace = 20) {
+        if (yPos + requiredSpace > pageHeight - marginBottom) {
+            pdf.addPage();
+            currentPage++;
+            addHeader(currentPage);
+            return 50;
+        }
+        return yPos;
+    }
     
-    pdf.setFontSize(20);
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('GitHub Profile Analysis Report', 20, 32);
+    addHeader(currentPage);
     
-    // Logo placeholder box
-    pdf.setDrawColor(255, 255, 255);
-    pdf.setLineWidth(1);
-    pdf.rect(160, 8, 40, 24);
-    pdf.setTextColor(255, 255, 255);
-    pdf.setFontSize(10);
-    pdf.text('SMARRTIF', 170, 18);
-    pdf.text('AI', 180, 26);
-    
-    // User info
     pdf.setTextColor(0, 0, 0);
     pdf.setFontSize(16);
     pdf.setFont('helvetica', 'bold');
@@ -1012,6 +1029,7 @@ async function downloadPDF() {
     let yPos = 80;
     
     // Profile Overview
+    yPos = checkNewPage(yPos, 40);
     const name = document.getElementById('name').textContent;
     const bio = document.getElementById('bio').textContent;
     const repos = document.getElementById('repos').textContent;
@@ -1028,8 +1046,14 @@ async function downloadPDF() {
     pdf.setFont('helvetica', 'normal');
     pdf.text(`Name: ${name}`, 20, yPos);
     yPos += 6;
-    pdf.text(`Bio: ${bio.substring(0, 80)}${bio.length > 80 ? '...' : ''}`, 20, yPos);
-    yPos += 6;
+    
+    const bioLines = pdf.splitTextToSize(`Bio: ${bio}`, 170);
+    bioLines.forEach(line => {
+        yPos = checkNewPage(yPos, 6);
+        pdf.text(line, 20, yPos);
+        yPos += 6;
+    });
+    
     pdf.text(`Repositories: ${repos} | Followers: ${followers} | Following: ${following}`, 20, yPos);
     yPos += 6;
     pdf.text(`Rating: ${rating}/100`, 20, yPos);
@@ -1075,7 +1099,8 @@ async function downloadPDF() {
     
     yPos += 10;
     
-    // AI Insights - Extract from the actual insight content
+    // AI Insights
+    yPos = checkNewPage(yPos, 30);
     const insightContainer = document.querySelector('.themed-insight-card .insight-content-themed');
     if (insightContainer) {
         pdf.setFontSize(14);
@@ -1083,10 +1108,9 @@ async function downloadPDF() {
         pdf.text('AI Career Insights', 20, yPos);
         yPos += 10;
         
-        // Get the full text content and clean it
         const fullText = insightContainer.textContent
             .replace(/\s+/g, ' ')
-            .replace(/📊|💼|⭐|🎯|📈/g, '') // Remove emojis
+            .replace(/📊|💼|⭐|🎯|📈/g, '')
             .trim();
         
         if (fullText) {
@@ -1094,66 +1118,42 @@ async function downloadPDF() {
             pdf.setFont('helvetica', 'normal');
             const lines = pdf.splitTextToSize(fullText, 170);
             
-            // Add content with proper line breaks
-            lines.slice(0, 15).forEach(line => {
-                if (yPos < 250) {
-                    pdf.text(line, 20, yPos);
-                    yPos += 4;
-                }
+            lines.forEach(line => {
+                yPos = checkNewPage(yPos, 4);
+                pdf.text(line, 20, yPos);
+                yPos += 4;
             });
-        }
-    } else {
-        // Fallback: try to get from any insights container
-        const fallbackContainer = document.querySelector('#insightContainer');
-        if (fallbackContainer) {
-            const textContent = fallbackContainer.textContent
-                .replace(/🤖|AI is analyzing|Generated|Powered by|Refresh/g, '')
-                .replace(/\s+/g, ' ')
-                .trim();
-            
-            if (textContent && textContent.length > 50) {
-                pdf.setFontSize(14);
-                pdf.setFont('helvetica', 'bold');
-                pdf.text('AI Career Insights', 20, yPos);
-                yPos += 10;
-                
-                pdf.setFontSize(9);
-                pdf.setFont('helvetica', 'normal');
-                const lines = pdf.splitTextToSize(textContent, 170);
-                lines.slice(0, 15).forEach(line => {
-                    if (yPos < 250) {
-                        pdf.text(line, 20, yPos);
-                        yPos += 4;
-                    }
-                });
-            }
         }
     }
     
-    // Footer with digital signature
-    pdf.setFillColor(240, 240, 240);
-    pdf.rect(0, 270, 210, 27, 'F');
-    
-    pdf.setTextColor(100, 100, 100);
-    pdf.setFontSize(8);
-    pdf.setFont('helvetica', 'italic');
-    pdf.text('This report is digitally signed and generated by SMARRTIF AI', 20, 285);
-    pdf.text('GitHub Profile Analyzer - Comprehensive Developer Analysis', 20, 290);
-    
-    // Digital signature box with logo
-    pdf.setDrawColor(...primaryColor);
-    pdf.setLineWidth(1);
-    pdf.rect(140, 275, 60, 15);
-    pdf.setTextColor(...primaryColor);
-    pdf.setFontSize(12);
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('SMARRTIF AI', 150, 285);
-    
-    // Add verification text
-    pdf.setFontSize(8);
-    pdf.setFont('helvetica', 'normal');
-    pdf.text('Digitally Verified', 145, 288);
+    // Add footer to all pages
+    const totalPages = pdf.internal.getNumberOfPages();
+    for (let i = 1; i <= totalPages; i++) {
+        pdf.setPage(i);
+        
+        pdf.setFillColor(240, 240, 240);
+        pdf.rect(0, 270, 210, 27, 'F');
+        
+        pdf.setTextColor(100, 100, 100);
+        pdf.setFontSize(8);
+        pdf.setFont('helvetica', 'italic');
+        pdf.text('This report is digitally signed and generated by SMARRTIF AI', 20, 285);
+        pdf.text('GitHub Profile Analyzer - Comprehensive Developer Analysis', 20, 290);
+        
+        pdf.setDrawColor(...primaryColor);
+        pdf.setLineWidth(1);
+        pdf.rect(140, 275, 60, 15);
+        pdf.setTextColor(...primaryColor);
+        pdf.setFontSize(12);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('SMARRTIF AI', 150, 285);
+        
+        pdf.setFontSize(8);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text('Digitally Verified', 145, 288);
+    }
     
     // Save PDF
     pdf.save(`${username}_github_analysis_report.pdf`);
+    console.log(`PDF generated with ${totalPages} page(s)`);
 }
