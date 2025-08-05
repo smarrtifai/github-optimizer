@@ -165,12 +165,12 @@ def get_profile(username):
 
         # --- Enhanced rating calculation ---
         def calculate_rating(profile, stars, commits, prs, issues, contributions, repos_count):
-            # Base scores with better weighting
-            star_score = min(25, stars * 0.5)  # Stars are important but not everything
-            commit_score = min(20, commits * 0.1)  # Recent activity matters
-            pr_score = min(15, prs * 0.3)  # PRs show collaboration
-            issue_score = min(10, issues * 0.2)  # Issues show engagement
-            contribution_score = min(15, contributions * 2)  # Diverse contributions
+            # Base scores with new weighting: Stars (5%), Commits (55%), PRs (15%), Issues (10%), Contributions (15%)
+            star_score = min(5, stars * 0.05)  # Stars (5%)
+            commit_score = min(55, commits * 0.15)  # Commits (55%) - most important
+            pr_score = min(15, prs * 0.3)  # PRs (15%)
+            issue_score = min(10, issues * 0.2)  # Issues (10%)
+            contribution_score = min(15, contributions * 2)  # Contributions (15%)
             
             # Account age bonus (more mature accounts get slight bonus)
             account_age_days = (datetime.datetime.now() - datetime.datetime.strptime(profile['created_at'], '%Y-%m-%dT%H:%M:%SZ')).days
