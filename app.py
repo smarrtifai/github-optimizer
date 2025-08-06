@@ -397,8 +397,7 @@ def get_activity(username):
         end_date = datetime.datetime.now(datetime.timezone.utc)
         
         days_map = {
-            '15days': 15, '1month': 30, '3months': 90, 
-            '6months': 180, '1year': 365, 'all': 1095
+            '15days': 15, '1month': 30, '60days': 60, '3months': 90
         }
         num_days = days_map.get(time_range, 30)
         start_date = end_date - datetime.timedelta(days=num_days)
@@ -421,7 +420,7 @@ def get_activity(username):
                 f'https://api.github.com/search/commits',
                 headers={**HEADERS, 'Accept': 'application/vnd.github.cloak-preview'},
                 params={
-                    'q': f'author:{username} committer-date:{start_search}..{end_search}',
+                    'q': f'author:{username} OR committer:{username} committer-date:{start_search}..{end_search}',
                     'per_page': 100,
                     'sort': 'committer-date'
                 },
