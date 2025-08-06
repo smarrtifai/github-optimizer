@@ -630,6 +630,7 @@ if GROQ_API_KEY:
 else:
     print("⚠️ GROQ_API_KEY not found in environment variables. AI insights will not work.")
     print("   Please add GROQ_API_KEY=your_api_key to your .env file")
+    print("   Current deployment timestamp:", datetime.datetime.now())
 
 # Helper function to get GitHub headers
 def get_github_headers():
