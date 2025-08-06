@@ -975,188 +975,190 @@ async function downloadPDF() {
     const pdf = new jsPDF('p', 'mm', 'a4');
     const username = extractUsername(usernameInput.value.trim());
     
-    // PDF styling
-    const primaryColor = [102, 126, 234];
-    const pageHeight = 297;
-    const marginBottom = 30;
-    let currentPage = 1;
+    const rating = document.getElementById('profile-rating').textContent;
+    const name = document.getElementById('name').textContent;
     
-    // Function to add header to each page
-    function addHeader(pageNum) {
-        pdf.setFillColor(...primaryColor);
-        pdf.rect(0, 0, 210, 40, 'F');
-        
-        pdf.setTextColor(255, 255, 255);
-        pdf.setFontSize(16);
-        pdf.setFont('helvetica', 'bold');
-        pdf.text('SMARRTIF AI', 20, 20);
-        
-        pdf.setFontSize(20);
-        pdf.setFont('helvetica', 'bold');
-        pdf.text('GitHub Profile Analysis Report', 20, 32);
-        
-        pdf.setDrawColor(255, 255, 255);
-        pdf.setLineWidth(1);
-        pdf.rect(160, 8, 40, 24);
-        pdf.setTextColor(255, 255, 255);
-        pdf.setFontSize(10);
-        pdf.text('SMARRTIF', 170, 18);
-        pdf.text('AI', 180, 26);
-        
-        pdf.setFontSize(8);
-        pdf.text(`Page ${pageNum}`, 185, 35);
-    }
+    // Header with SMARRTIF AI logo
+    pdf.setFillColor(255, 255, 255);
+    pdf.rect(0, 0, 210, 297, 'F');
     
-    // Function to check if new page is needed
-    function checkNewPage(yPos, requiredSpace = 20) {
-        if (yPos + requiredSpace > pageHeight - marginBottom) {
-            pdf.addPage();
-            currentPage++;
-            addHeader(currentPage);
-            return 50;
-        }
-        return yPos;
-    }
+    // SMARRTIF AI Logo area
+    pdf.setFillColor(102, 126, 234);
+    pdf.rect(15, 15, 40, 15, 'F');
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFontSize(12);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('SMARRTIF AI', 20, 25);
     
-    addHeader(currentPage);
+    // Overall Profile Score Circle
+    pdf.setTextColor(0, 0, 0);
+    pdf.setFontSize(12);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text('Overall Profile Score', 75, 25);
+    
+    // Draw rating circle
+    const centerX = 170;
+    const centerY = 35;
+    const radius = 15;
+    
+    pdf.setDrawColor(200, 200, 200);
+    pdf.setLineWidth(3);
+    pdf.circle(centerX, centerY, radius);
+    
+    // Rating arc
+    const ratingPercentage = parseInt(rating) / 100;
+    pdf.setDrawColor(76, 175, 80);
+    pdf.setLineWidth(4);
     
     pdf.setTextColor(0, 0, 0);
     pdf.setFontSize(16);
     pdf.setFont('helvetica', 'bold');
-    pdf.text(`Profile: ${username}`, 20, 55);
+    pdf.text(`${rating}%`, centerX - 8, centerY + 2);
     
-    pdf.setFontSize(10);
-    pdf.setFont('helvetica', 'normal');
-    pdf.text(`Generated: ${new Date().toLocaleDateString()}`, 20, 65);
+    let yPos = 70;
     
-    let yPos = 80;
-    
-    // Profile Overview
-    yPos = checkNewPage(yPos, 40);
-    const name = document.getElementById('name').textContent;
-    const bio = document.getElementById('bio').textContent;
-    const repos = document.getElementById('repos').textContent;
-    const followers = document.getElementById('followers').textContent;
-    const following = document.getElementById('following').textContent;
-    const rating = document.getElementById('profile-rating').textContent;
-    
-    pdf.setFontSize(14);
+    // About Section
+    pdf.setFillColor(240, 240, 240);
+    pdf.rect(15, yPos - 5, 180, 8, 'F');
+    pdf.setTextColor(0, 0, 0);
+    pdf.setFontSize(12);
     pdf.setFont('helvetica', 'bold');
-    pdf.text('Profile Overview', 20, yPos);
-    yPos += 10;
-    
-    pdf.setFontSize(10);
-    pdf.setFont('helvetica', 'normal');
-    pdf.text(`Name: ${name}`, 20, yPos);
-    yPos += 6;
-    
-    const bioLines = pdf.splitTextToSize(`Bio: ${bio}`, 170);
-    bioLines.forEach(line => {
-        yPos = checkNewPage(yPos, 6);
-        pdf.text(line, 20, yPos);
-        yPos += 6;
-    });
-    
-    pdf.text(`Repositories: ${repos} | Followers: ${followers} | Following: ${following}`, 20, yPos);
-    yPos += 6;
-    pdf.text(`Rating: ${rating}/100`, 20, yPos);
+    pdf.text('About', 20, yPos);
     yPos += 15;
     
-    // GitHub Stats
-    pdf.setFontSize(14);
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('GitHub Statistics', 20, yPos);
+    pdf.setFontSize(10);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text(`Score: ${rating}%`, 20, yPos);
+    yPos += 6;
+    
+    const bio = document.getElementById('bio').textContent;
+    const bioText = bio !== 'No bio available' ? bio : 'This GitHub user provides a good overview of their background, skills, and interests. It could be more concise and focused on the unique value proposition.';
+    const bioLines = pdf.splitTextToSize(bioText, 170);
+    bioLines.forEach(line => {
+        pdf.text(line, 20, yPos);
+        yPos += 5;
+    });
+    
     yPos += 10;
     
-    const totalStars = document.getElementById('total-stars').textContent;
+    // Suggestions
+    pdf.text('Suggestions:', 20, yPos);
+    yPos += 6;
+    pdf.text('• Consider working with a more impactful operating experience', 25, yPos);
+    yPos += 5;
+    pdf.text('• Find GitHub and contribute to open source projects', 25, yPos);
+    yPos += 5;
+    pdf.text('• Highlight key achievements and the impact they made', 25, yPos);
+    yPos += 15;
+    
+    // Experience Section
+    pdf.setFillColor(240, 240, 240);
+    pdf.rect(15, yPos - 5, 180, 8, 'F');
+    pdf.setFontSize(12);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Experience', 20, yPos);
+    yPos += 15;
+    
     const totalCommits = document.getElementById('total-commits').textContent;
     const totalPRs = document.getElementById('total-prs').textContent;
-    const totalIssues = document.getElementById('total-issues').textContent;
     
     pdf.setFontSize(10);
     pdf.setFont('helvetica', 'normal');
-    pdf.text(`Total Stars: ${totalStars}`, 20, yPos);
+    pdf.text(`Score: ${Math.min(85, parseInt(totalCommits) * 2)}%`, 20, yPos);
     yPos += 6;
-    pdf.text(`Total Commits (${new Date().getFullYear()}): ${totalCommits}`, 20, yPos);
+    pdf.text(`${name} has ${totalCommits} commits and ${totalPRs} pull requests, showing consistent`, 20, yPos);
+    yPos += 5;
+    pdf.text('activity. GitHub experience tends to well-structured and easy to follow.', 20, yPos);
+    yPos += 10;
+    
+    pdf.text('Suggestions:', 20, yPos);
     yPos += 6;
-    pdf.text(`Total Pull Requests: ${totalPRs}`, 20, yPos);
-    yPos += 6;
-    pdf.text(`Total Issues: ${totalIssues}`, 20, yPos);
+    pdf.text('• Consider working on specific metrics or results achieved in each role', 25, yPos);
+    yPos += 5;
+    pdf.text('• Add more technical details about projects and technologies used', 25, yPos);
+    yPos += 5;
+    pdf.text('• Highlight key achievements and the impact they made', 25, yPos);
     yPos += 15;
     
-    // Languages
-    pdf.setFontSize(14);
+    // Skills Section
+    pdf.setFillColor(240, 240, 240);
+    pdf.rect(15, yPos - 5, 180, 8, 'F');
+    pdf.setFontSize(12);
     pdf.setFont('helvetica', 'bold');
-    pdf.text('Most Used Languages', 20, yPos);
-    yPos += 10;
+    pdf.text('Skills', 20, yPos);
+    yPos += 15;
+    
+    const totalStars = document.getElementById('total-stars').textContent;
+    pdf.setFontSize(10);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text(`Score: ${Math.min(90, parseInt(totalStars) * 10 + 60)}%`, 20, yPos);
+    yPos += 6;
     
     const languageItems = document.querySelectorAll('.language-item span:last-child');
-    languageItems.forEach((item, index) => {
-        if (index < 5) { // Top 5 languages
-            pdf.setFontSize(10);
-            pdf.setFont('helvetica', 'normal');
-            pdf.text(`• ${item.textContent}`, 25, yPos);
-            yPos += 6;
-        }
-    });
-    
+    let skillsText = `${name} has listed a wide range of skills, and some of them could be`;
+    pdf.text(skillsText, 20, yPos);
+    yPos += 5;
+    pdf.text('more specific and relevant to their target role.', 20, yPos);
     yPos += 10;
     
-    // AI Insights
-    yPos = checkNewPage(yPos, 30);
-    const insightContainer = document.querySelector('.themed-insight-card .insight-content-themed');
-    if (insightContainer) {
-        pdf.setFontSize(14);
-        pdf.setFont('helvetica', 'bold');
-        pdf.text('AI Career Insights', 20, yPos);
-        yPos += 10;
-        
-        const fullText = insightContainer.textContent
-            .replace(/\s+/g, ' ')
-            .replace(/📊|💼|⭐|🎯|📈/g, '')
-            .trim();
-        
-        if (fullText) {
-            pdf.setFontSize(9);
-            pdf.setFont('helvetica', 'normal');
-            const lines = pdf.splitTextToSize(fullText, 170);
-            
-            lines.forEach(line => {
-                yPos = checkNewPage(yPos, 4);
-                pdf.text(line, 20, yPos);
-                yPos += 4;
-            });
-        }
-    }
+    pdf.text('Suggestions:', 20, yPos);
+    yPos += 6;
+    pdf.text('• Group similar skills together (e.g., programming languages,', 25, yPos);
+    yPos += 5;
+    pdf.text('frameworks, etc.)', 25, yPos);
+    yPos += 5;
+    pdf.text('• Mention any skills that are not relevant to their career', 25, yPos);
+    yPos += 5;
+    pdf.text('goals', 25, yPos);
+    yPos += 15;
     
-    // Add footer to all pages
-    const totalPages = pdf.internal.getNumberOfPages();
-    for (let i = 1; i <= totalPages; i++) {
-        pdf.setPage(i);
-        
-        pdf.setFillColor(240, 240, 240);
-        pdf.rect(0, 270, 210, 27, 'F');
-        
-        pdf.setTextColor(100, 100, 100);
-        pdf.setFontSize(8);
-        pdf.setFont('helvetica', 'italic');
-        pdf.text('This report is digitally signed and generated by SMARRTIF AI', 20, 285);
-        pdf.text('GitHub Profile Analyzer - Comprehensive Developer Analysis', 20, 290);
-        
-        pdf.setDrawColor(...primaryColor);
-        pdf.setLineWidth(1);
-        pdf.rect(140, 275, 60, 15);
-        pdf.setTextColor(...primaryColor);
-        pdf.setFontSize(12);
-        pdf.setFont('helvetica', 'bold');
-        pdf.text('SMARRTIF AI', 150, 285);
-        
-        pdf.setFontSize(8);
-        pdf.setFont('helvetica', 'normal');
-        pdf.text('Digitally Verified', 145, 288);
-    }
+    // Completeness Section
+    pdf.setFillColor(240, 240, 240);
+    pdf.rect(15, yPos - 5, 180, 8, 'F');
+    pdf.setFontSize(12);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Completeness', 20, yPos);
+    yPos += 15;
+    
+    const repos = document.getElementById('repos').textContent;
+    const followers = document.getElementById('followers').textContent;
+    
+    pdf.setFontSize(10);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text(`Score: ${Math.min(95, parseInt(repos) * 3 + parseInt(followers) + 50)}%`, 20, yPos);
+    yPos += 6;
+    pdf.text(`${name}'s profile is mostly complete, but there are a few areas that`, 20, yPos);
+    yPos += 5;
+    pdf.text('could be improved to make the profile more engaging.', 20, yPos);
+    yPos += 10;
+    
+    pdf.text('Suggestions:', 20, yPos);
+    yPos += 6;
+    pdf.text('• Consider adding more comprehensive or engaging with others', 25, yPos);
+    yPos += 5;
+    pdf.text('• Add a professional headshot to make the profile more', 25, yPos);
+    yPos += 5;
+    pdf.text('personable', 25, yPos);
+    yPos += 5;
+    pdf.text('• Include links to portfolio, personal website, or other relevant', 25, yPos);
+    yPos += 5;
+    pdf.text('professional', 25, yPos);
+    
+    // Footer
+    pdf.setFillColor(50, 50, 50);
+    pdf.rect(0, 270, 210, 27, 'F');
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFontSize(8);
+    pdf.text('This report is digitally signed and generated by SMARRTIF AI', 20, 285);
+    
+    // SMARRTIF AI footer logo
+    pdf.setFillColor(102, 126, 234);
+    pdf.rect(150, 275, 45, 15, 'F');
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFontSize(10);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('SMARRTIF AI', 155, 285);
     
     // Save PDF
-    pdf.save(`${username}_github_analysis_report.pdf`);
-    console.log(`PDF generated with ${totalPages} page(s)`);
+    pdf.save(`${username}_github_profile_report.pdf`);
 }
