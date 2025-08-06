@@ -163,22 +163,25 @@ def get_profile(username):
 
         # --- Enhanced rating calculation ---
         def calculate_rating(profile, stars, commits, prs, issues, contributions, repos_count):
-            # Base scores with new weighting: Stars (5%), Commits (55%), PRs (15%), Issues (10%), Contributions (15%)
-            star_score = min(5, stars * 0.05)  # Stars (5%)
-            commit_score = min(55, commits * 0.15)  # Commits (55%) - most important
-            pr_score = min(15, prs * 0.3)  # PRs (15%)
-            issue_score = min(10, issues * 0.2)  # Issues (10%)
-            contribution_score = min(15, contributions * 2)  # Contributions (15%)
+            # Enhanced scoring with higher base values and multipliers
+            star_score = min(20, stars * 0.5 + 10)  # Stars (20%) + base 10
+            commit_score = min(35, commits * 0.8 + 15)  # Commits (35%) + base 15
+            pr_score = min(15, prs * 1.5 + 5)  # PRs (15%) + base 5
+            issue_score = min(10, issues * 1.0 + 3)  # Issues (10%) + base 3
+            contribution_score = min(10, contributions * 3 + 5)  # Contributions (10%) + base 5
             
-            # Account age bonus (more mature accounts get slight bonus)
+            # Account age bonus (more generous)
             account_age_days = (datetime.datetime.now() - datetime.datetime.strptime(profile['created_at'], '%Y-%m-%dT%H:%M:%SZ')).days
-            age_bonus = min(5, account_age_days / 365)  # Max 5 points for 1+ year accounts
+            age_bonus = min(10, (account_age_days / 365) * 5 + 5)  # Max 10 points, base 5
             
-            # Repository quality bonus
-            repo_bonus = min(10, repos_count * 0.5)  # Quality over quantity
+            # Repository quality bonus (more generous)
+            repo_bonus = min(15, repos_count * 1.2 + 8)  # Max 15 points, base 8
             
-            total_score = round(star_score + commit_score + pr_score + issue_score + contribution_score + age_bonus + repo_bonus)
-            return max(0, min(100, total_score))
+            # Follower bonus
+            follower_bonus = min(5, profile.get('followers', 0) * 0.1)
+            
+            total_score = round(star_score + commit_score + pr_score + issue_score + contribution_score + age_bonus + repo_bonus + follower_bonus)
+            return max(30, min(100, total_score))  # Minimum 30, maximum 100
 
         rating = calculate_rating(
             profile_data,
