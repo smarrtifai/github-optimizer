@@ -181,7 +181,7 @@ def get_profile(username):
             follower_bonus = min(5, profile.get('followers', 0) * 0.1)
             
             total_score = round(star_score + commit_score + pr_score + issue_score + contribution_score + age_bonus + repo_bonus + follower_bonus)
-            return max(30, min(100, total_score))  # Minimum 30, maximum 100
+            return max(50, min(100, total_score))  # Minimum 50, maximum 100
 
         rating = calculate_rating(
             profile_data,
