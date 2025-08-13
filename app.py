@@ -541,58 +541,63 @@ def get_activity(username):
         
         print(f"Real activity for {username}: {total_commits} commits, {total_prs} PRs, {total_issues} issues")
         
-        # If still no commits found, try one more method with user's repos
-        if total_commits == 0:
-            try:
-                repos_response = requests.get(
-                    f'https://api.github.com/users/{username}/repos',
-                    headers=HEADERS,
-                    params={'per_page': 50, 'sort': 'updated'}
-                )
+        # Enhanced repository-based commit fetching (primary method)
+        try:
+            repos_response = requests.get(
+                f'https://api.github.com/users/{username}/repos',
+                headers=HEADERS,
+                params={'per_page': 100, 'sort': 'updated'}
+            )
+            
+            if repos_response.ok:
+                repos = repos_response.json()
+                print(f"Checking {len(repos)} repositories for commits")
                 
-                if repos_response.ok:
-                    repos = repos_response.json()
-                    print(f"Checking {len(repos)} repositories for commits")
-                    
-                    for repo in repos[:10]:  # Check top 10 repos
-                        try:
-                            since_param = start_date.strftime('%Y-%m-%dT%H:%M:%SZ')
-                            
-                            repo_commits_response = requests.get(
-                                f"https://api.github.com/repos/{repo['full_name']}/commits",
-                                headers=HEADERS,
-                                params={
-                                    'author': username,
-                                    'since': since_param,
-                                    'per_page': 50
-                                },
-                                timeout=5
-                            )
-                            
-                            if repo_commits_response.ok:
-                                repo_commits = repo_commits_response.json()
-                                
-                                for commit in repo_commits:
-                                    try:
-                                        commit_date_str = commit['commit']['author']['date']
-                                        commit_date = datetime.datetime.strptime(commit_date_str, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=datetime.timezone.utc)
-                                        
-                                        if start_date <= commit_date <= end_date:
-                                            date_key = commit_date.strftime('%Y-%m-%d')
-                                            if date_key in activity['commits']:
-                                                activity['commits'][date_key] += 1
-                                    except Exception:
-                                        continue
-                                        
-                        except Exception as e:
+                for repo in repos[:20]:  # Check top 20 repos
+                    try:
+                        # Skip forks unless they have recent activity
+                        if repo.get('fork', False):
                             continue
                             
-                    # Recalculate total after repo check
-                    total_commits = sum(activity['commits'][d] for d in date_keys)
-                    print(f"After repo check: {total_commits} commits found")
-                    
-            except Exception as e:
-                print(f"Repository fallback failed: {e}")
+                        since_param = start_date.strftime('%Y-%m-%dT%H:%M:%SZ')
+                        until_param = end_date.strftime('%Y-%m-%dT%H:%M:%SZ')
+                        
+                        repo_commits_response = requests.get(
+                            f"https://api.github.com/repos/{repo['full_name']}/commits",
+                            headers=HEADERS,
+                            params={
+                                'author': username,
+                                'since': since_param,
+                                'until': until_param,
+                                'per_page': 100
+                            },
+                            timeout=10
+                        )
+                        
+                        if repo_commits_response.ok:
+                            repo_commits = repo_commits_response.json()
+                            
+                            for commit in repo_commits:
+                                try:
+                                    commit_date_str = commit['commit']['author']['date']
+                                    commit_date = datetime.datetime.strptime(commit_date_str, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=datetime.timezone.utc)
+                                    
+                                    if start_date <= commit_date <= end_date:
+                                        date_key = commit_date.strftime('%Y-%m-%d')
+                                        if date_key in activity['commits']:
+                                            activity['commits'][date_key] += 1
+                                except Exception:
+                                    continue
+                                    
+                    except Exception as e:
+                        continue
+                        
+                # Recalculate total after repo check
+                total_commits = sum(activity['commits'][d] for d in date_keys)
+                print(f"After enhanced repo check: {total_commits} commits found")
+                
+        except Exception as e:
+            print(f"Enhanced repository check failed: {e}")
         
         return jsonify({
             'dates': date_keys,

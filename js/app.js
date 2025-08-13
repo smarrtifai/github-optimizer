@@ -524,6 +524,15 @@ function displayGitHubStats(username, _repos, profileData) {
     // Update rating in profile overview using the score from the backend
     updateProfileRating(rating);
 }
+// Get rating color based on score
+function getRatingColor(rating) {
+    if (rating >= 80) return { color: '#28a745', rgb: [40, 167, 69] };
+    if (rating >= 60) return { color: '#ffc107', rgb: [255, 193, 7] };
+    if (rating >= 40) return { color: '#fd7e14', rgb: [253, 126, 20] };
+    if (rating >= 20) return { color: '#dc3545', rgb: [220, 53, 69] };
+    return { color: '#6c757d', rgb: [108, 117, 125] };
+}
+
 // Update profile rating with enhanced UX
 function updateProfileRating(rating) {
     const ratingElement = document.getElementById('profile-rating');
@@ -536,20 +545,18 @@ function updateProfileRating(rating) {
         
         // Set color and description based on rating
         let color, description;
+        const ratingInfo = getRatingColor(rating);
+        color = ratingInfo.color;
+        
         if (rating >= 80) {
-            color = '#28a745';
             description = 'Excellent Developer';
         } else if (rating >= 60) {
-            color = '#ffc107';
             description = 'Good Developer';
         } else if (rating >= 40) {
-            color = '#fd7e14';
             description = 'Average Developer';
         } else if (rating >= 20) {
-            color = '#dc3545';
             description = 'Beginner Developer';
         } else {
-            color = '#6c757d';
             description = 'New to GitHub';
         }
         
@@ -1005,9 +1012,10 @@ async function downloadPDF() {
     pdf.setLineWidth(3);
     pdf.circle(centerX, centerY, radius);
     
-    // Rating arc
+    // Rating arc with dynamic color
     const ratingPercentage = parseInt(rating) / 100;
-    pdf.setDrawColor(76, 175, 80);
+    const ratingColorInfo = getRatingColor(parseInt(rating));
+    pdf.setDrawColor(...ratingColorInfo.rgb);
     pdf.setLineWidth(4);
     
     pdf.setTextColor(0, 0, 0);
