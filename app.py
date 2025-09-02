@@ -25,12 +25,12 @@ if MONGO_URI:
         client.admin.command('ismaster')
         db = client.github_analyzer # Use a database named 'github_analyzer'
         profiles_collection = db.profiles # Use a collection named 'profiles'
-        print("✅ MongoDB connection successful.")
+        print("MongoDB connection successful.")
     except ConnectionFailure as e:
-        print(f"❌ MongoDB connection failed: {e}")
+        print(f"MongoDB connection failed: {e}")
         db = None
 else:
-    print("⚠️ MONGO_URI not found. Database features will be disabled.")
+    print("MONGO_URI not found. Database features will be disabled.")
 
 # GitHub API token from environment variable
 GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')
@@ -220,9 +220,9 @@ def get_profile(username):
                     {'$set': user_document},
                     upsert=True
                 )
-                print(f"✅ Saved profile for '{username}' to MongoDB.")
+                print(f"Saved profile for '{username}' to MongoDB.")
             except Exception as e:
-                print(f"❌ Failed to save profile for '{username}' to MongoDB: {e}")
+                print(f"Failed to save profile for '{username}' to MongoDB: {e}")
         # --- End of MongoDB logic ---
 
         # Add stats to profile data
@@ -232,10 +232,10 @@ def get_profile(username):
     except requests.exceptions.RequestException as e:
         if hasattr(e, 'response') and e.response is not None and e.response.status_code == 404:
             return jsonify({'error': f"User '{username}' not found on GitHub"}), 404
-        print(f"❌ Request error fetching profile for {username}: {e}")
+        print(f"Request error fetching profile for {username}: {e}")
         return jsonify({'error': 'A network or API error occurred while fetching the profile.'}), 500
     except Exception as e:
-        print(f"❌ Unexpected error in get_profile for {username}: {e}")
+        print(f"Unexpected error in get_profile for {username}: {e}")
         return jsonify({'error': 'An unexpected internal server error occurred.'}), 500
 
 @app.route('/api/repos/<username>')
@@ -263,10 +263,10 @@ def get_repositories(username):
         
         return jsonify(repos)
     except requests.exceptions.RequestException as e:
-        print(f"❌ Request error fetching repositories for {username}: {e}")
+        print(f"Request error fetching repositories for {username}: {e}")
         return jsonify({'error': 'A network or API error occurred while fetching repositories.'}), 500
     except Exception as e:
-        print(f"❌ Unexpected error in get_repositories for {username}: {e}")
+        print(f"Unexpected error in get_repositories for {username}: {e}")
         return jsonify({'error': 'An unexpected internal server error occurred.'}), 500
 
 @app.route('/api/languages/<username>/<repo>')
@@ -280,10 +280,10 @@ def get_languages(username, repo):
         response.raise_for_status()
         return jsonify(response.json())
     except requests.exceptions.RequestException as e:
-        print(f"❌ Request error fetching languages for {username}/{repo}: {e}")
+        print(f"Request error fetching languages for {username}/{repo}: {e}")
         return jsonify({'error': 'A network or API error occurred while fetching languages.'}), 500
     except Exception as e:
-        print(f"❌ Unexpected error in get_languages for {username}/{repo}: {e}")
+        print(f"Unexpected error in get_languages for {username}/{repo}: {e}")
         return jsonify({'error': 'An unexpected internal server error occurred.'}), 500
 
 @app.route('/api/user-languages/<username>')
@@ -326,10 +326,10 @@ def get_user_languages(username):
         
         return jsonify(languages)
     except requests.exceptions.RequestException as e:
-        print(f"❌ Request error fetching user languages for {username}: {e}")
+        print(f"Request error fetching user languages for {username}: {e}")
         return jsonify({'error': 'A network or API error occurred while fetching user languages.'}), 500
     except Exception as e:
-        print(f"❌ Unexpected error in get_user_languages for {username}: {e}")
+        print(f"Unexpected error in get_user_languages for {username}: {e}")
         return jsonify({'error': 'An unexpected internal server error occurred.'}), 500
 
 @app.route('/api/commits/<username>')
@@ -386,10 +386,10 @@ def get_commits(username):
 
         return jsonify(commit_data)
     except requests.exceptions.RequestException as e:
-        print(f"❌ Request error fetching commits for {username}: {e}")
+        print(f"Request error fetching commits for {username}: {e}")
         return jsonify({'error': 'A network or API error occurred while fetching commits.'}), 500
     except Exception as e:
-        print(f"❌ Unexpected error in get_commits for {username}: {e}")
+        print(f"Unexpected error in get_commits for {username}: {e}")
         return jsonify({'error': 'An unexpected internal server error occurred.'}), 500
 
 @app.route('/api/activity/<username>')
@@ -615,10 +615,10 @@ def get_activity(username):
         })
         
     except requests.exceptions.RequestException as e:
-        print(f"❌ Request error fetching activity for {username}: {e}")
+        print(f"Request error fetching activity for {username}: {e}")
         return jsonify({'error': 'A network or API error occurred while fetching activity.'}), 500
     except Exception as e:
-        print(f"❌ Unexpected error in get_activity for {username}: {e}")
+        print(f"Unexpected error in get_activity for {username}: {e}")
         return jsonify({'error': 'An unexpected internal server error occurred.'}), 500
     
 #################################################################
@@ -626,16 +626,20 @@ def get_activity(username):
 #################################################################
 
 GROQ_API_KEY = os.getenv('GROQ_API_KEY')  # Required for AI insights
-GROQ_MODEL = "llama3-70b-8192"
+GROQ_MODEL = "llama-3.3-70b-versatile"
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 # Initialize Groq AI
 groq_configured = False
 if GROQ_API_KEY:
-    groq_configured = True
-    print("✅ Groq AI initialized successfully")
+    if GROQ_API_KEY.startswith('gsk_'):
+        groq_configured = True
+        print("Groq AI initialized successfully")
+        print(f"Using Groq API key: {GROQ_API_KEY[:10]}...{GROQ_API_KEY[-5:]}")
+    else:
+        print("Invalid GROQ_API_KEY format. Should start with 'gsk_'")
 else:
-    print("⚠️ GROQ_API_KEY not found in environment variables. AI insights will not work.")
+    print("GROQ_API_KEY not found in environment variables. AI insights will not work.")
     print("   Please add GROQ_API_KEY=your_api_key to your .env file")
     print("   Current deployment timestamp:", datetime.datetime.now())
 
@@ -669,6 +673,50 @@ def status():
         'github_token_configured': GITHUB_TOKEN is not None,
         'mongodb_configured': db is not None
     })
+
+@app.route('/api/test-groq')
+def test_groq():
+    """Test Groq API connectivity"""
+    if not groq_configured:
+        return jsonify({'error': 'Groq API not configured'}), 500
+    
+    try:
+        payload = {
+            "model": GROQ_MODEL,
+            "messages": [
+                {"role": "user", "content": "Say hello in one sentence."}
+            ],
+            "temperature": 0.1,
+            "max_tokens": 50
+        }
+        
+        headers = {
+            "Authorization": f"Bearer {GROQ_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        
+        response = requests.post(GROQ_API_URL, json=payload, headers=headers, timeout=10)
+        
+        if response.ok:
+            result = response.json()
+            return jsonify({
+                'status': 'success',
+                'message': 'Groq API is working',
+                'test_response': result.get('choices', [{}])[0].get('message', {}).get('content', 'No content')
+            })
+        else:
+            return jsonify({
+                'status': 'error',
+                'message': f'Groq API returned {response.status_code}',
+                'error': response.text
+            }), 500
+            
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': 'Failed to connect to Groq API',
+            'error': str(e)
+        }), 500
 
 @app.route('/api/insights/<username>')
 def generate_insights(username):
@@ -727,34 +775,34 @@ def generate_insights(username):
         account_age_years = round(account_age_days / 365, 1)
 
         # 4. Construct Optimized Prompt for Groq
-        prompt = f"""
-Analyze GitHub developer {username}:
+        top_langs_str = ', '.join([f"{lang}" for lang, count in top_languages[:3]]) if top_languages else 'None'
+        
+        prompt = f"""Analyze GitHub developer {username}:
 
-**PROFILE:** {profile_data.get('name', username)} | {profile_data.get('public_repos', 0)} repos | {total_stars} stars | {account_age_years}y old
-**LANGUAGES:** {', '.join([f"{lang}" for lang, count in top_languages[:3]]) if top_languages else 'None'}
+PROFILE: {profile_data.get('name', username)} has {profile_data.get('public_repos', 0)} repositories with {total_stars} total stars. Account is {account_age_years} years old.
+LANGUAGES: {top_langs_str}
 
-Provide concise insights in 4 sections:
+Provide insights in 4 sections:
 
-**1. TECHNICAL ASSESSMENT**
-- Rate skills based on languages and repo complexity
+1. TECHNICAL ASSESSMENT
+- Rate skills based on languages and repositories
 - Identify primary tech stack
 
-**2. CAREER RECOMMENDATIONS** 
+2. CAREER RECOMMENDATIONS
 - Suggest 3 specific roles matching their profile
-- Base on actual repo activity
+- Base on actual repository activity
 
-**3. STRENGTHS**
+3. STRENGTHS
 - Key technical and project strengths
 
-**4. Suggestions**
+4. SUGGESTIONS
 - 2-3 specific improvement suggestions
 
-Keep response under 500 words. Be specific and actionable.
-"""
+Keep response under 400 words. Be specific and actionable."""
 
         # 5. Query Groq API
         try:
-            print(f"🤖 Calling Groq API for {username}...")
+            print(f"Calling Groq API for {username}...")
             
             payload = {
                 "model": GROQ_MODEL,
@@ -763,7 +811,8 @@ Keep response under 500 words. Be specific and actionable.
                     {"role": "user", "content": prompt}
                 ],
                 "temperature": 0.7,
-                "max_tokens": 1024
+                "max_tokens": 1000,
+                "stream": False
             }
             
             headers = {
@@ -781,7 +830,7 @@ Keep response under 500 words. Be specific and actionable.
             if not insight_text or len(insight_text.strip()) < 50:
                 return jsonify({'error': 'Generated insight was too short or empty'}), 500
             
-            print(f"✅ Successfully generated insights for {username}")
+            print(f"Successfully generated insights for {username}")
             
             # --- Save insight to MongoDB ---
             if profiles_collection is not None:
@@ -795,9 +844,9 @@ Keep response under 500 words. Be specific and actionable.
                             }
                         }}
                     )
-                    print(f"✅ Saved insight for '{username}' to MongoDB.")
+                    print(f"Saved insight for '{username}' to MongoDB.")
                 except Exception as e:
-                    print(f"❌ Failed to save insight for '{username}' to MongoDB: {e}")
+                    print(f"Failed to save insight for '{username}' to MongoDB: {e}")
             # --- End of MongoDB logic ---
 
             return jsonify({
@@ -813,15 +862,25 @@ Keep response under 500 words. Be specific and actionable.
                 }
             })
             
+        except requests.exceptions.RequestException as req_error:
+            print(f"Groq API request error: {req_error}")
+            if hasattr(req_error, 'response') and req_error.response is not None:
+                try:
+                    error_detail = req_error.response.json()
+                    print(f"Error details: {error_detail}")
+                    return jsonify({'error': f'Groq API error: {error_detail.get("error", {}).get("message", str(req_error))}'}), 500
+                except:
+                    return jsonify({'error': f'Groq API error: {req_error.response.text}'}), 500
+            return jsonify({'error': f'AI insight generation failed: {str(req_error)}'}), 500
         except Exception as groq_error:
-            print(f"❌ Groq API error: {groq_error}")
+            print(f"Groq API error: {groq_error}")
             return jsonify({'error': f'AI insight generation failed: {str(groq_error)}'}), 500
 
     except requests.RequestException as req_error:
-        print(f"❌ GitHub API request failed: {req_error}")
+        print(f"GitHub API request failed: {req_error}")
         return jsonify({'error': f'GitHub API request failed: {str(req_error)}'}), 500
     except Exception as e:
-        print(f"❌ Unexpected error: {e}")
+        print(f"Unexpected error: {e}")
         return jsonify({'error': f'Insight generation failed: {str(e)}'}), 500
 
 
